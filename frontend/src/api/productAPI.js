@@ -173,6 +173,12 @@ const productAPI = {
   unsetRecommendedProduct: (productId) => {
     return axiosInstance.patch(`/products/${productId}/unrecommend`);
   },
+
+  sellerListProduct: (productId, sellerPrice) => axiosInstance.post('/products/seller/list', { productId, sellerPrice }),
+  sellerUpdatePrice: (sellerProductId, sellerPrice) => axiosInstance.put('/products/seller/price', { sellerProductId, sellerPrice }),
+  sellerUnlistProduct: (sellerProductId) => axiosInstance.put('/products/seller/unlist', { sellerProductId }),
+  sellerGetListings: () => axiosInstance.get('/products/seller/listings'),
+  adminGetAllSellerListings: () => axiosInstance.get('/products/admin/seller-listings'),
 };
 
 export default productAPI; 

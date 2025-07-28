@@ -1,6 +1,7 @@
 const Product = require('../models/Product');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const EventBanner = require('../models/EventBanner');
+const SellerProduct = require('../models/SellerProduct');
 
 // Get all products
 exports.getProducts = asyncHandler(async (req, res) => {
@@ -591,22 +592,12 @@ exports.unsetRecommendedProduct = async (req, res) => {
   res.json(product);
 }; 
 
-// exports.createProductBySellerSimple = async (req, res) => {
-//   try {
-//     const { name, price, category, subCategory } = req.body;
+exports.createProductBySellerSimple = async (req, res) => {
+  const { name, price, category, subCategory } = req.body;
+  const product = await Product.create({ name, price, category, subCategory });
+  res.json(product);
+};
 
-//     // Validate required fields
-//     if (!name || !price || !category || !subCategory) {
-//       return res.status(400).json({ message: 'Please provide name, price, category, and subCategory' });
-//     }
-
-//     // Check if category and subCategory exist
-//     const categoryExists = await Category.findById(category);
-//     const subCategoryExists = await Category.findById(subCategory);
-
-//     if (!categoryExists || !subCategoryExists) {
-//       return res.status(400).json({ message: 'Invalid category or subCategory ID' });
-//     }
 
 //     // Get seller from logged-in user
 //     const seller = await Seller.findOne({ userId: req.user._id });
@@ -637,3 +628,82 @@ exports.unsetRecommendedProduct = async (req, res) => {
 //     res.status(500).json({ success: false, message: 'Server Error', error: error.message });
 //   }
 // };
+
+// Seller: List a product (create SellerProduct)
+exports.sellerListProduct = async (req, res) => {
+  try {
+    const { productId, sellerPrice } = req.body;
+    const sellerId = req.user.sellerId || req.user._id; // adapt as needed
+    // Prevent duplicate listing
+    const existing = await SellerProduct.findOne({ seller: sellerId, product: productId });
+    if (existing && existing.isListed) {
+      return res.status(400).json({ message: 'Product already listed by seller' });
+    }
+    let sellerProduct;
+    if (existing) {
+      existing.sellerPrice = sellerPrice;
+      existing.isListed = true;
+      await existing.save();
+      sellerProduct = existing;
+    } else {
+      sellerProduct = await SellerProduct.create({ seller: sellerId, product: productId, sellerPrice });
+    }
+    res.status(201).json(sellerProduct);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+// Seller: Update price
+exports.sellerUpdatePrice = async (req, res) => {
+  try {
+    const { sellerProductId, sellerPrice } = req.body;
+    const sellerId = req.user.sellerId || req.user._id;
+    const sellerProduct = await SellerProduct.findOne({ _id: sellerProductId, seller: sellerId });
+    if (!sellerProduct) return res.status(404).json({ message: 'Listing not found' });
+    sellerProduct.sellerPrice = sellerPrice;
+    await sellerProduct.save();
+    res.json(sellerProduct);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+// Seller: Unlist product
+exports.sellerUnlistProduct = async (req, res) => {
+  try {
+    const { sellerProductId } = req.body;
+    const sellerId = req.user.sellerId || req.user._id;
+    const sellerProduct = await SellerProduct.findOne({ _id: sellerProductId, seller: sellerId });
+    if (!sellerProduct) return res.status(404).json({ message: 'Listing not found' });
+    sellerProduct.isListed = false;
+    await sellerProduct.save();
+    res.json({ message: 'Product unlisted', sellerProduct });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+// Seller: Get all their listings
+exports.sellerGetListings = async (req, res) => {
+  try {
+    const sellerId = req.user.sellerId || req.user._id;
+    const listings = await SellerProduct.find({ seller: sellerId }).populate('product');
+    res.json(listings);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+// Admin: Get all seller listings
+exports.adminGetAllSellerListings = async (req, res) => {
+  try {
+    const listings = await SellerProduct.find().populate('seller').populate('product');
+    res.json(listings);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+// Cascade delete SellerProduct when Product is deleted
+const origDeleteProduct = exports.adminDeleteProduct;
+exports.adminDeleteProduct = async function(req, res) {
+  const productId = req.params.id;
+  await SellerProduct.deleteMany({ product: productId });
+  return origDeleteProduct.apply(this, arguments);
+};

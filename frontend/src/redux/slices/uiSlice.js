@@ -7,7 +7,7 @@ const initialState = {
   notifications: [],
   theme: 'light',
   loading: false,
-  chatUnreadCounts: {}, // { [conversationId]: count }
+
 };
 
 const uiSlice = createSlice({
@@ -52,18 +52,7 @@ const uiSlice = createSlice({
     setLoading: (state, action) => {
       state.loading = action.payload;
     },
-    setChatUnreadCounts: (state, action) => {
-      state.chatUnreadCounts = action.payload;
-    },
-    incrementUnreadForConversation: (state, action) => {
-      const convId = action.payload;
-      if (!state.chatUnreadCounts[convId]) state.chatUnreadCounts[convId] = 0;
-      state.chatUnreadCounts[convId] += 1;
-    },
-    clearUnreadForConversation: (state, action) => {
-      const convId = action.payload;
-      state.chatUnreadCounts[convId] = 0;
-    },
+
   },
 });
 
@@ -79,9 +68,7 @@ export const {
   clearNotifications,
   setTheme,
   setLoading,
-  setChatUnreadCounts,
-  incrementUnreadForConversation,
-  clearUnreadForConversation,
+
 } = uiSlice.actions;
 
 export default uiSlice.reducer; 

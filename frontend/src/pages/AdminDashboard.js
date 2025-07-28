@@ -6,6 +6,7 @@ import productAPI from '../api/productAPI';
 import axiosInstance from '../api/axiosConfig';
 import { useDispatch } from 'react-redux';
 import { fetchFeaturedProducts } from '../redux/slices/productSlice';
+import { TextField, Button as MUIButton, Grid, Card, CardContent, Typography, Select as MUISelect, MenuItem, InputLabel, FormControl, Box } from '@mui/material';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -52,6 +53,13 @@ const AdminDashboard = () => {
   const [eventForm, setEventForm] = useState({ title: '', description: '', endDate: '', product: '' });
   const [eventLoading, setEventLoading] = useState(false);
   const [eventError, setEventError] = useState('');
+
+  const [sellerListings, setSellerListings] = useState([]);
+  const [loadingSellerListings, setLoadingSellerListings] = useState(false);
+
+  // Seller Listings filter state
+  const [sellerListingSearch, setSellerListingSearch] = useState('');
+  const [sellerListingStatus, setSellerListingStatus] = useState('all');
 
   const dispatch = useDispatch();
 
@@ -152,6 +160,17 @@ const AdminDashboard = () => {
       }
     });
   }, []);
+
+  // Fetch seller listings when products tab is active
+  useEffect(() => {
+    if (activeTab === 'products') {
+      setLoadingSellerListings(true);
+      productAPI.adminGetAllSellerListings()
+        .then(res => setSellerListings(res.data))
+        .catch(() => setSellerListings([]))
+        .finally(() => setLoadingSellerListings(false));
+    }
+  }, [activeTab]);
 
   const handleVendorAction = async (vendorId, action) => {
     setVendorActionLoading(vendorId + action);
@@ -389,6 +408,15 @@ const AdminDashboard = () => {
       setEventLoading(false);
     }
   };
+
+  // Filtering logic
+  const filteredSellerListings = sellerListings.filter(listing => {
+    const search = sellerListingSearch.toLowerCase();
+    const matchesProduct = listing.product?.name?.toLowerCase().includes(search);
+    const matchesSeller = listing.seller?.shopName?.toLowerCase().includes(search) || (listing.seller?._id || '').toLowerCase().includes(search);
+    const matchesStatus = sellerListingStatus === 'all' || (sellerListingStatus === 'active' && listing.isListed) || (sellerListingStatus === 'unlisted' && !listing.isListed);
+    return (matchesProduct || matchesSeller) && matchesStatus;
+  });
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -744,6 +772,65 @@ const AdminDashboard = () => {
           {activeTab === 'products' && (
             <div className="p-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-6">All Products</h3>
+              {/* Seller Listings Section */}
+              <div className="mb-8">
+                <h4 className="text-md font-semibold mb-2">Seller Listings</h4>
+                {/* Filter/Search Bar */}
+                <div className="flex flex-wrap gap-2 mb-4 items-center">
+                  <input
+                    type="text"
+                    className="border rounded px-2 py-1 text-sm"
+                    placeholder="Search by product or seller..."
+                    value={sellerListingSearch}
+                    onChange={e => setSellerListingSearch(e.target.value)}
+                    style={{ minWidth: 180 }}
+                  />
+                  <select
+                    className="border rounded px-2 py-1 text-sm"
+                    value={sellerListingStatus}
+                    onChange={e => setSellerListingStatus(e.target.value)}
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="active">Active</option>
+                    <option value="unlisted">Unlisted</option>
+                  </select>
+                </div>
+                {loadingSellerListings ? (
+                  <div className="text-center py-4">Loading seller listings...</div>
+                ) : filteredSellerListings.length === 0 ? (
+                  <div className="text-gray-400">No seller listings found.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full bg-white border border-gray-200">
+                      <thead className="sticky top-0 bg-white z-10">
+                        <tr>
+                          <th className="px-4 py-2 border">Product</th>
+                          <th className="px-4 py-2 border">Seller</th>
+                          <th className="px-4 py-2 border">Seller Price</th>
+                          <th className="px-4 py-2 border">Default Price</th>
+                          <th className="px-4 py-2 border">Status</th>
+                          <th className="px-4 py-2 border">Listed On</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredSellerListings.map(listing => (
+                          <tr key={listing._id}>
+                            <td className="px-4 py-2 border flex items-center gap-2">
+                              <img src={listing.product?.images?.[0]?.url || '/product-images/default.webp'} alt={listing.product?.name} className="w-10 h-10 object-contain rounded border" />
+                              <span>{listing.product?.name}</span>
+                            </td>
+                            <td className="px-4 py-2 border">{listing.seller?.shopName || listing.seller?._id || 'N/A'}</td>
+                            <td className="px-4 py-2 border font-semibold text-blue-700">{formatINR(listing.sellerPrice)}</td>
+                            <td className="px-4 py-2 border">{formatINR(listing.product?.price)}</td>
+                            <td className="px-4 py-2 border">{listing.isListed ? <span className="text-green-600">Active</span> : <span className="text-gray-400">Unlisted</span>}</td>
+                            <td className="px-4 py-2 border text-xs">{listing.createdAt ? new Date(listing.createdAt).toLocaleDateString() : '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
               {loadingProducts ? (
                 <div className="text-center py-8">Loading...</div>
               ) : (
@@ -929,62 +1016,91 @@ const AdminDashboard = () => {
 
           {/* Categories Tab */}
           {activeTab === 'categories' && (
-            <div>
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-semibold text-gray-800">Category Management</h3>
-                {!selectedMainCat && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Left: Main Categories */}
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800">Main Categories</h3>
                   <button
                     className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
                     onClick={() => handleOpenCategoryModal()}
                   >
                     <FaPlus /> Add Main Category
                   </button>
-                )}
-                {selectedMainCat && (
-                  <button
-                    className="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300"
-                    onClick={() => setSelectedMainCat('')}
-                  >
-                    &larr; Back to Main Categories
-                  </button>
-                )}
-              </div>
-              {loadingCategories ? (
-                <div>Loading categories...</div>
-              ) : !selectedMainCat ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {categories.filter(cat => !cat.parentCategory).map(cat => (
-                    <button
-                      key={cat._id}
-                      onClick={() => setSelectedMainCat(cat._id)}
-                      className="group w-full"
-                    >
-                      <div className="relative bg-gray-100 rounded-lg p-6 text-center hover:bg-primary-50 transition-colors overflow-hidden h-40 flex flex-col justify-end items-center">
-                        <div className="relative z-10">
-                          <h3 className="font-semibold mb-2 group-hover:text-primary-600 text-gray-800 text-lg">
-                            {cat.name || 'Unnamed Category'}
-                          </h3>
-                        </div>
+                    <div key={cat._id} className="bg-white rounded-lg shadow p-4 flex flex-col items-center">
+                      {cat.image && (
+                        <img src={cat.image} alt={cat.name} className="w-16 h-16 object-contain rounded-full mb-2 border shadow" />
+                      )}
+                      <span className="font-semibold mb-1 text-center">{cat.name}</span>
+                      <span className="text-xs text-gray-500 mb-2 text-center">{cat.productCount || 0} products</span>
+                      <div className="flex gap-2 mb-2">
+                        <button
+                          className="text-blue-600 hover:text-blue-800"
+                          onClick={() => handleOpenCategoryModal(cat)}
+                          title="Edit Category"
+                        >
+                          <FaEdit />
+                        </button>
+                        <button
+                          className="text-red-600 hover:text-red-800"
+                          onClick={async () => {
+                            if (window.confirm('Delete this category?')) {
+                              await productAPI.deleteCategory(cat._id);
+                              setLoadingCategories(true);
+                              const res = await productAPI.getCategories();
+                              setCategories(res.data);
+                              setLoadingCategories(false);
+                            }
+                          }}
+                          title="Delete Category"
+                        >
+                          <FaTrash />
+                        </button>
+                        <button
+                          className="text-green-600 hover:text-green-800"
+                          onClick={() => handleOpenCategoryModal({ parentCategory: cat._id })}
+                          title="Add Subcategory"
+                        >
+                          <FaPlus />
+                        </button>
                       </div>
-                    </button>
+                      <button
+                        className={`text-xs px-2 py-1 rounded ${selectedMainCat === cat._id ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}
+                        onClick={() => setSelectedMainCat(cat._id)}
+                      >
+                        {selectedMainCat === cat._id ? 'Viewing Subcategories' : 'View Subcategories'}
+                      </button>
+                    </div>
                   ))}
                 </div>
-              ) : (
-                <>
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-lg font-semibold">Subcategories of {categories.find(cat => cat._id === selectedMainCat)?.name}</h4>
+              </div>
+              {/* Right: Subcategories */}
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800">
+                    {selectedMainCat ? `Subcategories of ${categories.find(cat => cat._id === selectedMainCat)?.name}` : 'Select a Main Category'}
+                  </h3>
+                  {selectedMainCat && (
                     <button
-                      className="bg-blue-600 text-white px-3 py-1 rounded flex items-center gap-1 text-sm"
-                      onClick={() => handleOpenCategoryModal({ parentCategory: selectedMainCat })}
+                      className="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300"
+                      onClick={() => setSelectedMainCat('')}
                     >
-                      <FaPlus /> Add Subcategory
+                      &larr; Back
                     </button>
-                  </div>
-                  <div className="flex flex-wrap gap-3">
+                  )}
+                </div>
+                {selectedMainCat ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {categories.filter(cat => cat.parentCategory === selectedMainCat).map(subcat => (
-                      <div key={subcat._id} className="bg-white rounded-lg shadow p-4 flex flex-col items-center min-w-[160px]">
-                        <span className="font-semibold mb-2">{subcat.name}</span>
-                        <span className="text-xs text-gray-500 mb-2">{subcat.productCount || 0} products</span>
+                      <div key={subcat._id} className="bg-white rounded-lg shadow p-4 flex flex-col items-center">
+                        {subcat.image && (
+                          <img src={subcat.image} alt={subcat.name} className="w-14 h-14 object-contain rounded-full mb-2 border shadow" />
+                        )}
+                        <span className="font-semibold mb-1 text-center">{subcat.name}</span>
+                        <span className="text-xs text-gray-500 mb-2 text-center">{subcat.productCount || 0} products</span>
                         <div className="flex gap-2">
                           <button
                             className="text-blue-600 hover:text-blue-800"
@@ -1013,47 +1129,100 @@ const AdminDashboard = () => {
                     ))}
                     {categories.filter(cat => cat.parentCategory === selectedMainCat).length === 0 && <span className="text-gray-400">No subcategories found.</span>}
                   </div>
-                </>
-              )}
-              {/* Category Modal */}
+                ) : (
+                  <div className="text-gray-400 text-center mt-8">Select a main category to view subcategories.</div>
+                )}
+              </div>
+              {/* Category Modal (Add/Edit) with Material UI */}
               {categoryModal.open && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-                  <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-lg relative">
-                    <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600" onClick={() => setCategoryModal({ open: false, category: null })}>&times;</button>
-                    <h2 className="text-xl font-bold mb-4">{categoryModal.category && categoryModal.category._id ? 'Edit Category' : 'Add Category'}</h2>
-                    <form onSubmit={handleCategoryFormSubmit}>
-                      <div className="mb-4">
-                        <label className="block text-gray-700 font-medium mb-1">Name</label>
-                        <input type="text" name="name" value={categoryForm.name} onChange={handleCategoryFormChange} className="w-full border rounded px-3 py-2" required />
-                      </div>
-                      <div className="mb-4">
-                        <label className="block text-gray-700 font-medium mb-1">Slug</label>
-                        <input type="text" name="slug" value={categoryForm.slug} onChange={handleCategoryFormChange} className="w-full border rounded px-3 py-2" required />
-                      </div>
-                      <div className="mb-4">
-                        <label className="block text-gray-700 font-medium mb-1">Description</label>
-                        <textarea name="description" value={categoryForm.description} onChange={handleCategoryFormChange} className="w-full border rounded px-3 py-2" />
-                      </div>
-                      <div className="mb-4">
-                        <label className="block text-gray-700 font-medium mb-1">Image</label>
-                        <input type="file" name="image" accept="image/*" onChange={handleCategoryFormChange} className="w-full" />
-                      </div>
-                      <div className="mb-4">
-                        <label className="block text-gray-700 font-medium mb-1">Parent Category</label>
-                        <select name="parentCategory" value={categoryForm.parentCategory || ''} onChange={handleCategoryFormChange} className="w-full border rounded px-3 py-2">
-                          <option value="">None (Main Category)</option>
-                          {categories.map((cat) => (
-                            <option key={cat._id} value={cat._id}>{cat.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      {categoryError && <div className="text-red-600 mb-2">{categoryError}</div>}
-                      <div className="flex justify-end gap-2">
-                        <button type="button" className="bg-gray-200 text-gray-700 px-4 py-2 rounded" onClick={() => setCategoryModal({ open: false, category: null })}>Cancel</button>
-                        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Save</button>
-                      </div>
-                    </form>
-                  </div>
+                  <Card sx={{ minWidth: 340, maxWidth: 480, width: '100%', borderRadius: 2, boxShadow: 6, position: 'relative' }}>
+                    <CardContent>
+                      <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600" onClick={() => setCategoryModal({ open: false, category: null })} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', right: 12, top: 8, position: 'absolute' }}>&times;</button>
+                      <Typography variant="h6" fontWeight={700} mb={2} textAlign="center">
+                        {categoryModal.category && categoryModal.category._id ? 'Edit Category' : categoryModal.category && categoryModal.category.parentCategory ? 'Add Subcategory' : 'Add Main Category'}
+                      </Typography>
+                      <Box component="form" onSubmit={handleCategoryFormSubmit} sx={{ mt: 1 }}>
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              label="Name"
+                              name="name"
+                              value={categoryForm.name}
+                              onChange={handleCategoryFormChange}
+                              fullWidth
+                              required
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              label="Slug"
+                              name="slug"
+                              value={categoryForm.slug}
+                              onChange={handleCategoryFormChange}
+                              fullWidth
+                              required
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12}>
+                            <TextField
+                              label="Description"
+                              name="description"
+                              value={categoryForm.description}
+                              onChange={handleCategoryFormChange}
+                              fullWidth
+                              multiline
+                              minRows={2}
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <MUIButton
+                              variant="outlined"
+                              component="label"
+                              fullWidth
+                              sx={{ height: 40 }}
+                            >
+                              Upload Image
+                              <input type="file" name="image" accept="image/*" hidden onChange={handleCategoryFormChange} />
+                            </MUIButton>
+                            {(categoryForm.image && typeof categoryForm.image === 'object') ? (
+                              <img src={URL.createObjectURL(categoryForm.image)} alt="Preview" style={{ marginTop: 8, width: 60, height: 48, objectFit: 'contain', borderRadius: 6, border: '1px solid #eee' }} />
+                            ) : (categoryForm.image && typeof categoryForm.image === 'string' && categoryForm.image.startsWith('http')) ? (
+                              <img src={categoryForm.image} alt="Preview" style={{ marginTop: 8, width: 60, height: 48, objectFit: 'contain', borderRadius: 6, border: '1px solid #eee' }} />
+                            ) : null}
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <FormControl fullWidth size="small">
+                              <InputLabel id="parent-category-label">Parent Category</InputLabel>
+                              <MUISelect
+                                labelId="parent-category-label"
+                                name="parentCategory"
+                                value={categoryForm.parentCategory || ''}
+                                label="Parent Category"
+                                onChange={handleCategoryFormChange}
+                              >
+                                <MenuItem value="">None (Main Category)</MenuItem>
+                                {categories.filter(cat => !cat.parentCategory).map((cat) => (
+                                  <MenuItem key={cat._id} value={cat._id}>{cat.name}</MenuItem>
+                                ))}
+                              </MUISelect>
+                              <Typography variant="caption" color="text.secondary" mt={0.5}>
+                                {categoryForm.parentCategory ? 'This will be a subcategory.' : 'This will be a main category.'}
+                              </Typography>
+                            </FormControl>
+                          </Grid>
+                        </Grid>
+                        {categoryError && <Typography color="error" mt={2}>{categoryError}</Typography>}
+                        <Box mt={3} display="flex" justifyContent="flex-end" gap={1}>
+                          <MUIButton onClick={() => setCategoryModal({ open: false, category: null })} variant="outlined" color="secondary">Cancel</MUIButton>
+                          <MUIButton type="submit" variant="contained" color="primary">Save</MUIButton>
+                        </Box>
+                      </Box>
+                    </CardContent>
+                  </Card>
                 </div>
               )}
             </div>

@@ -6,10 +6,7 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
 const path = require('path');
-const { Server } = require('socket.io');
 const User = require('./models/User');
-const Message = require('./models/Message');
-const Conversation = require('./models/Conversation');
 
 // Load environment variables
 dotenv.config();
@@ -22,7 +19,6 @@ const orderRoutes = require('./routes/orderRoutes');
 const sellerRoutes = require('./routes/sellerRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
-const chatRoutes = require('./routes/chatRoutes');
 const couponRoutes = require('./routes/couponRoutes');
 const translateRoutes = require('./routes/translateRoutes');
 
@@ -128,7 +124,6 @@ app.use((req, res, next) => {
 
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/uploads/chat', express.static(path.join(__dirname, 'uploads/chat')));
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -138,7 +133,6 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/sellers', sellerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/categories', categoryRoutes);
-app.use('/api/chat', chatRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/translate', translateRoutes);
 
@@ -183,123 +177,7 @@ const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-// --- SOCKET.IO SETUP ---
-// const socketOrigins = [
-//   'http://localhost:3000',
-//   'https://mv-store.vercel.app',
-//   'https://mv-store-ram312908-gmailcoms-projects.vercel.app'
-// ];
 
-// Add FRONTEND_URL_PRODUCTION if it exists
-// if (process.env.FRONTEND_URL_PRODUCTION) {
-//   socketOrigins.push(process.env.FRONTEND_URL_PRODUCTION);
-// }
-
-// const io = new Server(server, {
-//   cors: {
-//     origin: socketOrigins,
-//     credentials: true
-//   }
-// });
-
-const onlineUsers = new Map();
-
-// io.on('connection', (socket) => {
-//   // User joins with their userId
-//   socket.on('join', (userId) => {
-//     onlineUsers.set(userId, socket.id);
-//     socket.userId = userId;
-//   });
-
-//   // Join conversation room
-//   socket.on('joinConversation', (conversationId) => {
-//     socket.join(conversationId);
-//   });
-
-//   // Handle sending message
-//   socket.on('sendMessage', async ({ conversationId, senderId, text, fileUrl, fileType }) => {
-//     try {
-//       // Fetch sender name from DB
-//       const sender = await User.findById(senderId).select('name');
-//       io.to(conversationId).emit('receiveMessage', {
-//         conversationId,
-//         senderId,
-//         senderName: sender ? sender.name : '',
-//         text,
-//         fileUrl,
-//         fileType,
-//         createdAt: new Date().toISOString()
-//       });
-//       // --- Emit unreadCountsUpdate to all participants ---
-//       const conversation = await Conversation.findById(conversationId);
-//       if (conversation) {
-//         for (const participantId of conversation.participants) {
-//           const unreadCounts = await getUnreadCountsForUser(participantId);
-//           const socketId = onlineUsers.get(participantId.toString());
-//           if (socketId) {
-//             io.to(socketId).emit('unreadCountsUpdate', unreadCounts);
-//           }
-//         }
-//       }
-//     } catch (err) {
-//       console.error('Socket sendMessage error:', err);
-//     }
-//   });
-
-//   // Handle markAsRead event
-//   socket.on('markAsRead', async ({ conversationId, userId }) => {
-//     try {
-//       await Message.updateMany(
-//         { conversation: conversationId, readBy: { $ne: userId } },
-//         { $addToSet: { readBy: userId } }
-//       );
-//       // --- Emit unreadCountsUpdate to all participants ---
-//       const conversation = await Conversation.findById(conversationId);
-//       if (conversation) {
-//         for (const participantId of conversation.participants) {
-//           const unreadCounts = await getUnreadCountsForUser(participantId);
-//           const socketId = onlineUsers.get(participantId.toString());
-//           if (socketId) {
-//             io.to(socketId).emit('unreadCountsUpdate', unreadCounts);
-//           }
-//         }
-//       }
-//     } catch (err) {
-//       console.error('Socket markAsRead error:', err);
-//     }
-//   });
-
-//   // Handle disconnect
-//   socket.on('disconnect', () => {
-//     if (socket.userId) {
-//       onlineUsers.delete(socket.userId);
-//     }
-//   });
-
-//   // Typing indicator
-//   socket.on('typing', ({ conversationId, userId, userName }) => {
-//     socket.to(conversationId).emit('typing', { conversationId, userId, userName });
-//   });
-//   socket.on('stopTyping', ({ conversationId, userId }) => {
-//     socket.to(conversationId).emit('stopTyping', { conversationId, userId });
-//   });
-// });
-
-// Helper: Get unread counts for all conversations for a user
-
-async function getUnreadCountsForUser(userId) {
-  const conversations = await Conversation.find({ participants: userId });
-  const unreadCounts = {};
-  for (const conv of conversations) {
-    const count = await Message.countDocuments({
-      conversation: conv._id,
-      readBy: { $ne: userId },
-      sender: { $ne: userId }
-    });
-    unreadCounts[conv._id] = count;
-  }
-  return unreadCounts;
-}
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {

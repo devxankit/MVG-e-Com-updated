@@ -256,15 +256,7 @@ const ProductDetail = ({ product, onAddToCart, onWishlist, onShare }) => {
               <FaShare />
             </button>
           </div>
-          {/* Chat with Seller Button */}
-          {product.seller && (
-            <button
-              onClick={() => navigate(`/chat?sellerId=${product.seller._id || product.seller}`)}
-              className="w-full bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 mb-4"
-            >
-              💬 Chat with Seller{product.seller.shopName ? ` (${product.seller.shopName})` : ''}
-            </button>
-          )}
+
           <div className="bg-gray-50 rounded-lg p-4 flex flex-wrap gap-4 items-center">
             <div className="flex items-center gap-2 text-gray-700"><FaSyncAlt className="text-green-600" /> 10 days Service Centre Replacement</div>
             <div className="flex items-center gap-2 text-gray-700"><FaTruck className="text-green-600" /> Free Delivery</div>

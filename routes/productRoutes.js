@@ -72,4 +72,12 @@ router.delete('/:id/variants', protect, authorize('seller'), productController.d
 // Upload an image for a variant option (uses Multer)
 router.post('/:id/variant-option-image', protect, authorize('seller'), upload.single('file'), productController.uploadVariantOptionImage);
 
+// Seller routes
+router.post('/seller/list', protect, productController.sellerListProduct);
+router.put('/seller/price', protect, productController.sellerUpdatePrice);
+router.put('/seller/unlist', protect, productController.sellerUnlistProduct);
+router.get('/seller/listings', protect, productController.sellerGetListings);
+// Admin route
+router.get('/admin/seller-listings', protect, authorize('admin'), productController.adminGetAllSellerListings);
+
 module.exports = router; 

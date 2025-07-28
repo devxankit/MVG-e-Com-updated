@@ -15,7 +15,7 @@ import SellerDashboard from './pages/SellerDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import VendorRegistration from './pages/VendorRegistration';
 import ProtectedRoute from './components/common/ProtectedRoute';
-import Chat from './pages/Chat';
+
 import { getCurrentUser } from './redux/slices/authSlice';
 import Wishlist from './pages/Wishlist';
 import { fetchCart } from './redux/slices/cartSlice';
@@ -95,7 +95,7 @@ function App() {
       <div className="min-h-screen flex flex-col">
         <ScrollToTop />
         <Header />
-        <main className={`flex-grow ${location.pathname === '/chat' ? 'bg-white' : ''}`}>
+        <main className="flex-grow">
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Home />} />
@@ -136,12 +136,12 @@ function App() {
               </ProtectedRoute>
             } />
 
-            <Route path="/chat" element={<Chat />} />
+
             <Route path="/wishlist" element={<Wishlist />} />
             <Route path="/categories" element={<Categories />} />
           </Routes>
         </main>
-        {location.pathname !== '/chat' && <Footer />}
+        <Footer />
       </div>
     </>
   );

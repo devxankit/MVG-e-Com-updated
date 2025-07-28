@@ -13,8 +13,8 @@ import {
   FaTachometerAlt
 } from 'react-icons/fa';
 import { logout } from '../../redux/slices/authSlice';
-import { toggleSidebar, toggleSearchModal, setChatUnreadCounts } from '../../redux/slices/uiSlice';
-import io from 'socket.io-client';
+import { toggleSidebar, toggleSearchModal } from '../../redux/slices/uiSlice';
+
 import axiosInstance from '../../api/axiosConfig';
 import { clearCart } from '../../redux/slices/cartSlice';
 
@@ -30,11 +30,10 @@ const Header = () => {
   const dispatch = useDispatch();
   const { user, isAuthenticated } = useSelector((state) => state.auth);
   const { itemCount } = useSelector((state) => state.cart);
-  const { chatUnreadCounts } = useSelector((state) => state.ui);
-  const totalUnread = Object.values(chatUnreadCounts || {}).reduce((a, b) => a + b, 0);
+
   const wishlistItems = useSelector((state) => state.wishlist.items);
   const drawerRef = useRef();
-  const socketRef = useRef();
+
 
   // Close drawer on outside click
   useEffect(() => {
@@ -48,33 +47,7 @@ const Header = () => {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [isMenuOpen]);
 
-  useEffect(() => {
-    if (!isAuthenticated || !user || !user._id) return;
-    // Fetch unread counts on mount
-    const fetchUnreadCounts = async () => {
-      try {
-        const convRes = await axiosInstance.get('/chat/conversations');
-        if (convRes.data.unreadCounts) {
-          dispatch(setChatUnreadCounts(convRes.data.unreadCounts));
-        }
-      } catch (err) {
-        // Optionally handle error
-      }
-    };
-    fetchUnreadCounts();
-    // Set up socket connection for unread updates
-    const SOCKET_URL = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
-    socketRef.current = io(SOCKET_URL, { transports: ['websocket'] });
-    socketRef.current.emit('join', user._id);
-    socketRef.current.on('unreadCountsUpdate', (unreadCounts) => {
-      dispatch(setChatUnreadCounts(unreadCounts));
-    });
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
-    };
-  }, [isAuthenticated, user, dispatch]);
+
 
   const fetchSuggestions = async (term) => {
     if (!term.trim()) {
@@ -204,7 +177,7 @@ const Header = () => {
             </form>
           </div>
 
-          {/* Right: Chat, Dashboard, Icons & User */}
+          {/* Right: Dashboard, Icons & User */}
           <div className="flex items-center space-x-2 md:space-x-3">
           
           

@@ -145,6 +145,17 @@ const SellerDashboard = () => {
   const [soldCountEdits, setSoldCountEdits] = useState({});
   const [soldCountLoading, setSoldCountLoading] = useState({});
 
+  // Add state for admin products and seller listings
+  const [adminProducts, setAdminProducts] = useState([]);
+  const [sellerListings, setSellerListings] = useState([]);
+  const [listingLoading, setListingLoading] = useState(false);
+  const [step, setStep] = useState(1);
+  const [selectedSubCat, setSelectedSubCat] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [sellerPrice, setSellerPrice] = useState('');
+  const [listingError, setListingError] = useState('');
+  const [showListingModal, setShowListingModal] = useState(false);
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'active':
@@ -169,6 +180,12 @@ const SellerDashboard = () => {
       .then(res => setProducts(res.data))
       .catch(() => setProducts([]))
       .finally(() => setLoading(false));
+  }, []);
+
+  // Fetch admin products and seller listings on mount
+  useEffect(() => {
+    productAPI.getProducts().then(res => setAdminProducts(res.data)).catch(() => setAdminProducts([]));
+    productAPI.sellerGetListings().then(res => setSellerListings(res.data)).catch(() => setSellerListings([]));
   }, []);
 
   // Fetch categories on mount
@@ -381,6 +398,49 @@ const SellerDashboard = () => {
     setSoldCountLoading((prev) => ({ ...prev, [productId]: false }));
   };
 
+  // Handler for listing a product
+  const handleListProduct = async () => {
+    setListingLoading(true);
+    setListingError('');
+    try {
+      await productAPI.sellerListProduct(selectedProduct._id, sellerPrice);
+      // Refresh seller listings
+      const res = await productAPI.sellerGetListings();
+      setSellerListings(res.data);
+      setStep(1);
+      setSelectedMainCat('');
+      setSelectedSubCat('');
+      setSelectedProduct(null);
+      setSellerPrice('');
+    } catch (err) {
+      setListingError(err.response?.data?.message || 'Failed to list product');
+    } finally {
+      setListingLoading(false);
+    }
+  };
+
+  // Handler for updating price
+  const handleUpdatePrice = async (sellerProductId, newPrice) => {
+    setListingLoading(true);
+    try {
+      await productAPI.sellerUpdatePrice(sellerProductId, newPrice);
+      const res = await productAPI.sellerGetListings();
+      setSellerListings(res.data);
+    } catch {}
+    setListingLoading(false);
+  };
+
+  // Handler for unlisting
+  const handleUnlist = async (sellerProductId) => {
+    setListingLoading(true);
+    try {
+      await productAPI.sellerUnlistProduct(sellerProductId);
+      const res = await productAPI.sellerGetListings();
+      setSellerListings(res.data);
+    } catch {}
+    setListingLoading(false);
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
@@ -538,144 +598,137 @@ const SellerDashboard = () => {
           {activeTab === 'products' && (
             <div>
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-semibold text-gray-800">My Products</h3>
+                <h3 className="text-lg font-semibold text-gray-800">My Listings</h3>
                 <button
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                  onClick={() => setShowModal(true)}
+                  onClick={() => { setShowListingModal(true); setStep(1); }}
                 >
-                  <FaPlus />
-                  Add Product
+                  <FaPlus /> List New Product
                 </button>
               </div>
-
-              {/* Add Product Modal */}
-              {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-                  <div className="bg-white rounded-lg shadow-lg p-4 sm:p-8 w-full max-w-lg mx-2 sm:mx-0 relative overflow-y-auto max-h-[90vh]">
-                    <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600" onClick={() => setShowModal(false)}>&times;</button>
-                    <h2 className="text-xl font-bold mb-4">Add New Product</h2>
-                    {error && <div className="text-red-500 mb-2">{error}</div>}
-                    <form onSubmit={e => {
-                      e.preventDefault();
-                      if (!newProduct.mainCategory) {
-                        setError('Please select a main category for your product.');
-                        return;
-                      }
-                      if (!newProduct.subCategory) {
-                        setError('Please select a subcategory for your product.');
-                        return;
-                      }
-                      setError('');
-                      handleAddProduct(e);
-                    }} encType="multipart/form-data" className="space-y-4">
-                      <div className="grid grid-cols-1 gap-4">
-                        <input type="text" className="form-input" placeholder="Product Name" value={newProduct.name} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} required />
-                        <div>
-                          <label className="block text-gray-700 font-medium mb-1">Select Main Category</label>
-                          <select
-                            className="form-input w-full mb-2"
-                            value={newProduct.mainCategory}
-                            onChange={e => setNewProduct({ ...newProduct, mainCategory: e.target.value, subCategory: '' })}
-                            required
-                          >
-                            <option value="">-- Select Main Category --</option>
-                            {categories.filter(cat => !cat.parentCategory).map(cat => (
-                              <option key={cat._id} value={cat._id}>{cat.name}</option>
-                            ))}
-                          </select>
-                          {newProduct.mainCategory && (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {categories.filter(cat => cat.parentCategory === newProduct.mainCategory).map(subcat => (
-                                <button
-                                  type="button"
-                                  key={subcat._id}
-                                  className={`px-3 py-2 rounded border transition-colors ${newProduct.subCategory === subcat._id ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-blue-100'}`}
-                                  onClick={() => setNewProduct({ ...newProduct, subCategory: subcat._id })}
-                                >
-                                  {subcat.name}
-                                </button>
-                              ))}
-                              {categories.filter(cat => cat.parentCategory === newProduct.mainCategory).length === 0 && <span className="text-gray-400">No subcategories found.</span>}
-                            </div>
-                          )}
+              {/* Listing Modal */}
+              {showListingModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 transition-opacity duration-300 animate-fadeIn">
+                  <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl mx-2 relative transition-transform duration-300 animate-slideUp">
+                    <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-2xl" onClick={() => setShowListingModal(false)}>&times;</button>
+                    <h2 className="text-xl font-bold mb-4">List a New Product</h2>
+                    {/* Stepper for listing a product - only render current step */}
+                    {step === 1 && (
+                      <div className="mb-6">
+                        <h4 className="font-semibold mb-2">Step 1: Select Main Category</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          {categories.filter(cat => !cat.parentCategory).map(cat => (
+                            <button
+                              key={cat._id}
+                              className={`flex flex-col items-center p-4 rounded border transition-colors duration-200 ${selectedMainCat === cat._id ? 'bg-blue-100 border-blue-600' : 'bg-gray-50 border-gray-200 hover:bg-blue-50'}`}
+                              onClick={() => { setSelectedMainCat(cat._id); setStep(2); }}
+                            >
+                              {cat.image && <img src={cat.image} alt={cat.name} className="w-14 h-14 object-contain rounded-full mb-2 border" />}
+                              <span className="font-semibold text-gray-800">{cat.name}</span>
+                            </button>
+                          ))}
                         </div>
-                        <input type="number" className="form-input" placeholder="Price" value={newProduct.price} onChange={e => setNewProduct({ ...newProduct, price: e.target.value })} required min="0" />
                       </div>
-                      <button type="submit" className="btn-primary w-full">Add Product</button>
-                    </form>
+                    )}
+                    {step === 2 && (
+                      <div className="mb-6">
+                        <h4 className="font-semibold mb-2">Step 2: Select Subcategory</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 overflow-y-auto max-h-[320px]">
+                          {categories.filter(cat => cat.parentCategory === selectedMainCat).map(subcat => (
+                            <button
+                              key={subcat._id}
+                              className={`flex flex-col items-center p-4 rounded border transition-colors duration-200 ${selectedSubCat === subcat._id ? 'bg-blue-100 border-blue-600' : 'bg-gray-50 border-gray-200 hover:bg-blue-50'}`}
+                              onClick={() => { setSelectedSubCat(subcat._id); setStep(3); }}
+                            >
+                              {subcat.image && <img src={subcat.image} alt={subcat.name} className="w-12 h-12 object-contain rounded-full mb-2 border" />}
+                              <span className="font-semibold text-gray-800">{subcat.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                        <button className="mt-4 text-blue-600 underline" onClick={() => setStep(1)}>&larr; Back to Main Categories</button>
+                      </div>
+                    )}
+                    {step === 3 && (
+                      <div className="mb-6">
+                        <h4 className="font-semibold mb-2">Step 3: Select Product</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto max-h-[320px]">
+                          {adminProducts.filter(p => p.category === selectedMainCat && p.subCategory === selectedSubCat).map(product => (
+                            <button
+                              key={product._id}
+                              className={`flex items-center p-4 rounded border transition-colors duration-200 w-full ${selectedProduct && selectedProduct._id === product._id ? 'bg-blue-100 border-blue-600' : 'bg-gray-50 border-gray-200 hover:bg-blue-50'}`}
+                              onClick={() => { setSelectedProduct(product); setStep(4); setSellerPrice(product.price); }}
+                            >
+                              <img src={product.images && product.images[0] ? product.images[0].url : '/product-images/default.webp'} alt={product.name} className="w-16 h-16 object-contain rounded mr-4 border" />
+                              <div className="flex-1 text-left">
+                                <div className="font-semibold text-gray-800">{product.name}</div>
+                                <div className="text-xs text-gray-500">Default Price: {formatINR(product.price)}</div>
+                                <div className="text-xs text-gray-500">Brand: {product.brand}</div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                        <button className="mt-4 text-blue-600 underline" onClick={() => setStep(2)}>&larr; Back to Subcategories</button>
+                      </div>
+                    )}
+                    {step === 4 && selectedProduct && (
+                      <div className="mb-6 max-w-md mx-auto bg-white rounded shadow p-6">
+                        <h4 className="font-semibold mb-2">Step 4: Set Your Price</h4>
+                        <div className="flex items-center gap-4 mb-4">
+                          <img src={selectedProduct.images && selectedProduct.images[0] ? selectedProduct.images[0].url : '/product-images/default.webp'} alt={selectedProduct.name} className="w-20 h-20 object-contain rounded border" />
+                          <div>
+                            <div className="font-semibold text-gray-800">{selectedProduct.name}</div>
+                            <div className="text-xs text-gray-500">Default Price: {formatINR(selectedProduct.price)}</div>
+                            <div className="text-xs text-gray-500">Brand: {selectedProduct.brand}</div>
+                          </div>
+                        </div>
+                        <input
+                          type="number"
+                          className="form-input w-full mb-2"
+                          placeholder="Enter your price"
+                          value={sellerPrice}
+                          min="0"
+                          onChange={e => setSellerPrice(e.target.value)}
+                        />
+                        {listingError && <div className="text-red-600 mb-2">{listingError}</div>}
+                        <div className="flex gap-2 justify-end">
+                          <button className="bg-gray-200 text-gray-700 px-4 py-2 rounded" onClick={() => setStep(3)}>Back</button>
+                          <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={async () => { await handleListProduct(); setShowListingModal(false); }} disabled={listingLoading}>{listingLoading ? 'Listing...' : 'List Product'}</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
-
-              {loading ? (
-                <div className="text-center py-8">Loading...</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Product</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Price</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Stock</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Sold</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {products.map((product) => (
-                        <tr key={product._id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center">
-                              <img
-                                src={product.images && product.images[0] ? product.images[0].url : '/product-images/default.webp'}
-                                alt={product.name}
-                                className="w-12 h-12 object-cover rounded mr-3"
-                              />
-                              <span className="font-medium text-gray-800">{product.name}</span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 font-medium">
-                            {formatINR(product.price)}
-                          </td>
-                          <td className="py-3 px-4">{product.stock}</td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="number"
-                                min="0"
-                                className="w-16 border rounded px-1 text-sm"
-                                value={soldCountEdits[product._id] !== undefined ? soldCountEdits[product._id] : (product.soldCount || 0)}
-                                onChange={e => handleSoldCountChange(product._id, e.target.value)}
-                                disabled={soldCountLoading[product._id]}
-                              />
-                              <button
-                                className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
-                                onClick={() => handleSoldCountSave(product._id)}
-                                disabled={soldCountLoading[product._id]}
-                              >
-                                {soldCountLoading[product._id] ? 'Saving...' : 'Save'}
-                              </button>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${product.isActive ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'}`}>
-                              {product.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex space-x-2">
-                              <button className="text-green-600 hover:text-green-800" onClick={() => handleEditProduct(product)}><FaEdit /></button>
-                              <button className="text-blue-600 hover:text-blue-800" onClick={() => handleManageVariants(product)} title="Manage Variants"><FaCog /></button>
-                              <button className="text-red-600 hover:text-red-800" onClick={() => handleDeleteProduct(product._id)}><FaTrash /></button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              {/* Seller's current listings */}
+              <div className="mt-8">
+                <h4 className="font-semibold mb-2">Your Current Listings</h4>
+                {listingLoading && <div className="text-blue-600 mb-2">Updating...</div>}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sellerListings.filter(l => l.isListed).map(listing => (
+                    <div key={listing._id} className="bg-white rounded shadow p-4 flex items-center gap-4">
+                      <img src={listing.product.images && listing.product.images[0] ? listing.product.images[0].url : '/product-images/default.webp'} alt={listing.product.name} className="w-16 h-16 object-contain rounded border" />
+                      <div className="flex-1">
+                        <div className="font-semibold text-gray-800">{listing.product.name}</div>
+                        <div className="text-xs text-gray-500">Brand: {listing.product.brand}</div>
+                        <div className="text-xs text-gray-500">Default Price: {formatINR(listing.product.price)}</div>
+                        <div className="flex items-center gap-2 mt-2">
+                          <input
+                            type="number"
+                            className="form-input w-24"
+                            value={listing.sellerPrice}
+                            min="0"
+                            onChange={e => handleUpdatePrice(listing._id, e.target.value)}
+                            disabled={listingLoading}
+                          />
+                          <span className="text-xs text-gray-500">Your Price</span>
+                          <button className="text-red-600 ml-4 underline text-xs" onClick={() => handleUnlist(listing._id)} disabled={listingLoading}>Unlist</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {sellerListings.filter(l => l.isListed).length === 0 && <div className="text-gray-400">You have no active listings. List a product above!</div>}
                 </div>
-              )}
+              </div>
             </div>
           )}
 
