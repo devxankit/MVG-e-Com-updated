@@ -6,7 +6,7 @@ import productAPI from '../api/productAPI';
 import axiosInstance from '../api/axiosConfig';
 import { useDispatch } from 'react-redux';
 import { fetchFeaturedProducts } from '../redux/slices/productSlice';
-import { TextField, Button as MUIButton, Grid, Card, CardContent, Typography, Select as MUISelect, MenuItem, InputLabel, FormControl, Box } from '@mui/material';
+import { TextField, Button, Button as MUIButton, Grid, Card, CardContent, Typography, Select, Select as MUISelect, MenuItem, InputLabel, FormControl, Box } from '@mui/material';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -26,12 +26,15 @@ const AdminDashboard = () => {
     pendingVendors: 0
   });
 
-  const [editModal, setEditModal] = useState({ open: false, product: null });
-  const [rejectModal, setRejectModal] = useState({ open: false, product: null });
-  const [editForm, setEditForm] = useState({});
-  const [editError, setEditError] = useState('');
-  const [rejectReason, setRejectReason] = useState('');
-  const [actionLoading, setActionLoading] = useState(null);
+const [editModal, setEditModal] = useState({ open: false, product: null });
+const [rejectModal, setRejectModal] = useState({ open: false, product: null });
+const [addProductModal, setAddProductModal] = useState({ open: false });
+const [addProductForm, setAddProductForm] = useState({});
+const [addProductError, setAddProductError] = useState('');
+const [editForm, setEditForm] = useState({});
+const [editError, setEditError] = useState('');
+const [rejectReason, setRejectReason] = useState('');
+const [actionLoading, setActionLoading] = useState(null);
 
   const [editUserModal, setEditUserModal] = useState({ open: false, user: null });
   const [editUserForm, setEditUserForm] = useState({});
@@ -368,6 +371,26 @@ const AdminDashboard = () => {
         res = await productAPI.setRecommendedProduct(id);
       }
       setProducts(products.map(p => p._id === id ? res.data : p));
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Add new product
+  const handleAddProductSubmit = async (e) => {
+    e.preventDefault();
+    setAddProductError('');
+    setActionLoading('addProduct');
+    try {
+      const res = await axiosInstance.post('/admin/create-product', {
+        ...addProductForm,
+        productDescription: addProductForm.productDescription
+      });
+      setProducts([...products, res.data]);
+      setAddProductModal({ open: false });
+      setAddProductForm({});
+    } catch (err) {
+      setAddProductError(err.response?.data?.message || 'Failed to create product');
     } finally {
       setActionLoading(null);
     }
@@ -771,7 +794,30 @@ const AdminDashboard = () => {
           {/* Products Tab */}
           {activeTab === 'products' && (
             <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-6">All Products</h3>
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-semibold text-gray-800">All Products</h3>
+                <button 
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                  onClick={() => {
+                    setAddProductForm({
+                      name: '',
+                      description: '',
+                      price: '',
+                      stock: '',
+                      brand: '',
+                      sku: '',
+                      category: '',
+                      subCategory: '',
+                      images: [{ url: '' }]
+                    });
+                    setAddProductModal({ open: true });
+                    setAddProductError('');
+                  }}
+                >
+                  <FaPlus />
+                  Add Product
+                </button>
+              </div>
               {/* Seller Listings Section */}
               <div className="mb-8">
                 <h4 className="text-md font-semibold mb-2">Seller Listings</h4>
@@ -1286,6 +1332,81 @@ const AdminDashboard = () => {
           )}
         </div>
       </div>
+
+      {/* Add Product Modal */}
+      {addProductModal.open && (
+<div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-2xl mx-auto relative">
+            <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600" onClick={() => setAddProductModal({ open: false })}>&times;</button>
+            <h2 className="text-xl font-bold mb-4">Add New Product</h2>
+            {addProductError && <div className="text-red-500 mb-2">{addProductError}</div>}
+            <Grid container spacing={2} component="form" onSubmit={handleAddProductSubmit}>
+              <Grid item xs={12} sm={6}>
+                <TextField fullWidth label="Product Name" variant="outlined" value={addProductForm.name || ''} onChange={e => setAddProductForm({ ...addProductForm, name: e.target.value })} required />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField fullWidth label="Short Description" variant="outlined" value={addProductForm.description || ''} onChange={e => setAddProductForm({ ...addProductForm, description: e.target.value })} required />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField fullWidth multiline rows={4} label="Product Description" variant="outlined" value={addProductForm.productDescription || ''} onChange={e => setAddProductForm({ ...addProductForm, productDescription: e.target.value })} required />
+              </Grid>
+              <Grid item xs={6} sm={4}>
+                <TextField fullWidth type="number" label="Price" variant="outlined" value={addProductForm.price || ''} onChange={e => setAddProductForm({ ...addProductForm, price: e.target.value })} required min="0" />
+              </Grid>
+              <Grid item xs={6} sm={4}>
+                <TextField fullWidth type="number" label="Stock" variant="outlined" value={addProductForm.stock || ''} onChange={e => setAddProductForm({ ...addProductForm, stock: e.target.value })} required min="0" />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField fullWidth label="Brand" variant="outlined" value={addProductForm.brand || ''} onChange={e => setAddProductForm({ ...addProductForm, brand: e.target.value })} required />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField fullWidth label="SKU" variant="outlined" value={addProductForm.sku || ''} onChange={e => setAddProductForm({ ...addProductForm, sku: e.target.value })} required />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth variant="outlined" required>
+                  <InputLabel>Main Category</InputLabel>
+                  <Select
+                    native
+                    value={addProductForm.category || ''}
+                    onChange={e => setAddProductForm({ ...addProductForm, category: e.target.value, subCategory: '' })}
+                    label="Main Category"
+                  >
+                    <option aria-label="None" value="" />
+                    {categories.filter(cat => !cat.parentCategory).map(cat => (
+                      <option key={cat._id} value={cat._id}>{cat.name}</option>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth variant="outlined" required>
+                  <InputLabel>Subcategory</InputLabel>
+                  <Select
+                    native
+                    value={addProductForm.subCategory || ''}
+                    onChange={e => setAddProductForm({ ...addProductForm, subCategory: e.target.value })}
+                    label="Subcategory"
+                    disabled={!addProductForm.category}
+                  >
+                    <option aria-label="None" value="" />
+                    {categories.filter(cat => cat.parentCategory === addProductForm.category).map(subcat => (
+                      <option key={subcat._id} value={subcat._id}>{subcat.name}</option>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField fullWidth label="Image URL" variant="outlined" value={addProductForm.images && addProductForm.images[0] ? addProductForm.images[0].url : ''} onChange={e => setAddProductForm({ ...addProductForm, images: [{ url: e.target.value }] })} required />
+              </Grid>
+              <Grid item xs={12}>
+                <Button fullWidth type="submit" variant="contained" color="primary" disabled={actionLoading === 'addProduct'}>
+                  {actionLoading === 'addProduct' ? 'Adding...' : 'Add Product'}
+                </Button>
+              </Grid>
+            </Grid>
+          </div>
+        </div>
+      )}
 
       {/* Edit Product Modal */}
       {editModal.open && (

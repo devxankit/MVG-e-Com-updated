@@ -7,13 +7,9 @@ const sellerSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  logo: {
+  businessName: {
     type: String,
-    default: ''
-  },
-  banner: {
-    type: String,
-    default: ''
+    required: [true, 'Please provide a business name']
   },
   phone: {
     type: String,
@@ -25,7 +21,7 @@ const sellerSchema = new mongoose.Schema({
   },
   isApproved: {
     type: Boolean,
-    default: true
+    default: false // Changed to false for admin approval
   },
   approvalDate: Date,
   approvedBy: {
@@ -33,59 +29,10 @@ const sellerSchema = new mongoose.Schema({
     ref: 'User'
   },
   rejectionReason: String,
-  payoutDetails: {
-    accountType: {
-      type: String,
-      enum: ['bank', 'paypal', 'stripe'],
-      default: 'bank'
-    },
-    accountNumber: String,
-    routingNumber: String,
-    accountHolderName: String,
-    paypalEmail: String,
-    stripeAccountId: String
-  },
-  commissionRate: {
-    type: Number,
-    default: 10, // 10% commission by default
-    min: 0,
-    max: 100
-  },
-  totalSales: {
-    type: Number,
-    default: 0
-  },
-  totalOrders: {
-    type: Number,
-    default: 0
-  },
-  rating: {
-    type: Number,
-    default: 0,
-    min: 0,
-    max: 5
-  },
-  numReviews: {
-    type: Number,
-    default: 0
-  },
   isActive: {
     type: Boolean,
     default: true
-  },
-  categories: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Category'
-  }],
-  documents: [{
-    name: String,
-    url: String,
-    type: String,
-    uploadedAt: {
-      type: Date,
-      default: Date.now
-    }
-  }]
+  }
 }, {
   timestamps: true
 });
@@ -93,14 +40,5 @@ const sellerSchema = new mongoose.Schema({
 // Index for better query performance
 sellerSchema.index({ userId: 1 });
 sellerSchema.index({ isApproved: 1 });
-sellerSchema.index({ shopName: 'text' });
-
-// Virtual for average rating
-sellerSchema.virtual('averageRating').get(function() {
-  return this.numReviews > 0 ? this.rating / this.numReviews : 0;
-});
-
-// Ensure virtual fields are serialized
-sellerSchema.set('toJSON', { virtuals: true });
 
 module.exports = mongoose.model('Seller', sellerSchema); 

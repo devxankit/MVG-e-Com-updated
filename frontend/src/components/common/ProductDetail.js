@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaStar, FaShoppingCart, FaHeart, FaShare, FaTruck, FaShieldAlt, FaUndo, FaTag, FaSyncAlt, FaCheckCircle } from 'react-icons/fa';
+import { FaStar, FaShoppingCart, FaHeart, FaShare, FaTruck, FaShieldAlt, FaUndo, FaTag, FaSyncAlt, FaCheckCircle, FaExpand } from 'react-icons/fa';
 import { formatINR } from '../../utils/formatCurrency';
 import { useSelector } from 'react-redux';
 import productAPI from '../../api/productAPI';

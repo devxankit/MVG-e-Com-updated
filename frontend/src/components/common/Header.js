@@ -107,7 +107,7 @@ const Header = () => {
   };
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+    <header className="bg-white/95 backdrop-blur-md shadow-lg border-b border-gray-200 sticky top-0 z-50 transition-all duration-300">
       <div className="max-w-full mx-auto px-2 sm:px-4 lg:px-6">
         <div className="flex justify-between items-center h-14 md:h-16">
           {/* Left: Logo & Main Nav */}
@@ -127,7 +127,7 @@ const Header = () => {
               <Link to="/categories" className="px-1.5 py-1 rounded transition-colors duration-200 hover:bg-primary-50 hover:text-primary-600">Categories</Link>
               {/* Conditionally render Become a Vendor */}
               {(!isAuthenticated || (user && user.role !== 'seller') || (user && user.role === 'admin')) && (
-                <Link to="/vendor-registration" className="px-1.5 py-1 rounded transition-colors duration-200 hover:bg-primary-50 hover:text-primary-600">Become a Vendor</Link>
+                <Link to="/login" className="px-1.5 py-1 rounded transition-colors duration-200 hover:bg-primary-50 hover:text-primary-600">Become a Vendor</Link>
               )}
             </nav>
           </div>
@@ -259,17 +259,18 @@ const Header = () => {
         </div>
       </div>
       {/* Mobile Drawer & Overlay */}
-      <div className={`fixed inset-0 z-40 md:hidden transition-all duration-300 ${isMenuOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}> 
-        {/* Overlay */}
-        <div
-          className={`fixed inset-0 bg-black bg-opacity-40 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100' : 'opacity-0'}`}
-          onClick={() => setIsMenuOpen(false)}
-        />
-        {/* Drawer */}
-        <aside
-          ref={drawerRef}
-          className={`fixed top-0 right-0 h-full w-4/5 max-w-xs bg-white shadow-lg z-50 transform transition-transform duration-300 ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}
-        >
+      {isMenuOpen && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          {/* Overlay */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-40 transition-opacity duration-300"
+            onClick={() => setIsMenuOpen(false)}
+          />
+          {/* Drawer */}
+          <aside
+            ref={drawerRef}
+            className="fixed top-0 right-0 h-full w-4/5 max-w-xs bg-white shadow-lg z-50 transform transition-transform duration-300 animate-slide-in-right"
+          >
           <div className="flex justify-between items-center px-4 py-4 border-b">
             <span className="text-xl font-bold text-primary-600">Menu</span>
             <button onClick={() => setIsMenuOpen(false)} aria-label="Close menu" className="text-gray-600 hover:text-primary-600 text-2xl transition-colors duration-200">
@@ -282,7 +283,7 @@ const Header = () => {
             <Link to="/categories" className="nav-link px-2 py-2 rounded hover:bg-primary-50 hover:text-primary-600 transition-colors duration-200" onClick={() => setIsMenuOpen(false)}>Categories</Link>
             {/* Conditionally render Become a Vendor */}
             {(!isAuthenticated || (user && user.role !== 'seller') || (user && user.role === 'admin')) && (
-              <Link to="/vendor-registration" className="nav-link px-2 py-2 rounded hover:bg-primary-50 hover:text-primary-600 transition-colors duration-200" onClick={() => setIsMenuOpen(false)}>Become a Vendor</Link>
+              <Link to="/login" className="nav-link px-2 py-2 rounded hover:bg-primary-50 hover:text-primary-600 transition-colors duration-200" onClick={() => setIsMenuOpen(false)}>Become a Vendor</Link>
             )}
            
             {isAuthenticated && user?.role === 'seller' && (
@@ -310,7 +311,8 @@ const Header = () => {
             </div>
           </nav>
         </aside>
-      </div>
+        </div>
+      )}
     </header>
   );
 };

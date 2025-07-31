@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import authAPI from '../../api/authAPI';
+import sellerAPI from '../../api/sellerAPI';
 
 // Async thunks
 export const login = createAsyncThunk(
@@ -24,6 +25,19 @@ export const register = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Registration failed');
+    }
+  }
+);
+
+export const registerSeller = createAsyncThunk(
+  'auth/registerSeller',
+  async (sellerData, { rejectWithValue }) => {
+    try {
+      const response = await sellerAPI.registerVendor(sellerData);
+      localStorage.setItem('token', response.data.token);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Seller registration failed');
     }
   }
 );
@@ -96,6 +110,21 @@ const authSlice = createSlice({
         state.token = action.payload.token;
       })
       .addCase(register.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      // Register Seller
+      .addCase(registerSeller.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(registerSeller.fulfilled, (state, action) => {
+        state.loading = false;
+        state.isAuthenticated = true;
+        state.user = action.payload.user;
+        state.token = action.payload.token;
+      })
+      .addCase(registerSeller.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })

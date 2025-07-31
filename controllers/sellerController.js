@@ -8,9 +8,7 @@ const mongoose = require('mongoose');
 // Register a new seller (vendor request)
 exports.register = async (req, res) => {
   try {
-    // Find or create user (for demo, assume user is already registered and authenticated)
-    // In production, you may want to link this to the logged-in user or create a new user
-    const { email, phone, password, name } = req.body;
+    const { name, email, phone, password, businessName } = req.body;
 
     // Check if user already exists
     let user = await User.findOne({ email });
@@ -18,28 +16,42 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'A user with this email already exists.' });
     }
 
-    // Create new user with role 'seller'
+    // Create new user with role 'customer' initially (will be changed to 'seller' after approval)
     user = await User.create({
       name,
       email,
       password,
-      role: 'seller',
+      role: 'customer', // Start as customer, will be upgraded to seller after approval
       phone
     });
 
     // Create seller request
     const seller = new Seller({
-      userId: user._id, // associate with new user
-      email,
-      name,
+      userId: user._id,
+      businessName: businessName || '', // Optional field
       phone,
-      isApproved: false // Pending approval
+      email,
+      isApproved: false // Pending admin approval
     });
     await seller.save();
-    res.status(201).json({ message: 'Vendor registration request submitted. Awaiting admin approval.' });
+
+    // Generate token for immediate login
+    const generateToken = require('../utils/generateToken');
+    const token = generateToken(user._id);
+
+    res.status(201).json({ 
+      message: 'Vendor registration submitted successfully. You can use the website as a regular user while waiting for admin approval.',
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
   } catch (error) {
     console.error('Seller registration error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 

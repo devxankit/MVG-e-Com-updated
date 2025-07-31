@@ -13,7 +13,6 @@ import Checkout from './pages/Checkout';
 import Profile from './pages/Profile';
 import SellerDashboard from './pages/SellerDashboard';
 import AdminDashboard from './pages/AdminDashboard';
-import VendorRegistration from './pages/VendorRegistration';
 import ProtectedRoute from './components/common/ProtectedRoute';
 
 import { getCurrentUser } from './redux/slices/authSlice';
@@ -53,13 +52,13 @@ function App() {
 
   // Toast message templates
   const toastTemplates = [
-    () => `${Math.floor(Math.random()*20)+5} people bought “${productNames[Math.floor(Math.random()*productNames.length)]}” in the last hour!`,
-    () => `Someone from ${cities[Math.floor(Math.random()*cities.length)]} just added “${productNames[Math.floor(Math.random()*productNames.length)]}” to their cart!`,
-    () => `Flash Sale: 20% off on “${productNames[Math.floor(Math.random()*productNames.length)]}” for the next 10 minutes!`,
-    () => `${Math.floor(Math.random()*10)+2} users are viewing “${productNames[Math.floor(Math.random()*productNames.length)]}” right now!`,
-    () => `Hurry! “${productNames[Math.floor(Math.random()*productNames.length)]}” is selling fast!`,
-    () => `“${productNames[Math.floor(Math.random()*productNames.length)]}” was just reviewed by a happy customer!`,
-    () => `Limited stock: Only ${Math.floor(Math.random()*5)+1} “${productNames[Math.floor(Math.random()*productNames.length)]}” left!`,
+    () => `${Math.floor(Math.random()*20)+5} people bought "${productNames[Math.floor(Math.random()*productNames.length)]}" in the last hour!`,
+    () => `Someone from ${cities[Math.floor(Math.random()*cities.length)]} just added "${productNames[Math.floor(Math.random()*productNames.length)]}" to their cart!`,
+    () => `Flash Sale: 20% off on "${productNames[Math.floor(Math.random()*productNames.length)]}" for the next 10 minutes!`,
+    () => `${Math.floor(Math.random()*10)+2} users are viewing "${productNames[Math.floor(Math.random()*productNames.length)]}" right now!`,
+    () => `Hurry! "${productNames[Math.floor(Math.random()*productNames.length)]}" is selling fast!`,
+    () => `"${productNames[Math.floor(Math.random()*productNames.length)]}" was just reviewed by a happy customer!`,
+    () => `Limited stock: Only ${Math.floor(Math.random()*5)+1} "${productNames[Math.floor(Math.random()*productNames.length)]}" left!`,
   ];
 
   React.useEffect(() => {
@@ -101,7 +100,6 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/vendor-registration" element={<VendorRegistration />} />
             <Route path="/products" element={<ProductList />} />
             <Route path="/products/:id" element={<ProductDetail />} />
             
@@ -135,7 +133,6 @@ function App() {
                 <AdminDashboard />
               </ProtectedRoute>
             } />
-
 
             <Route path="/wishlist" element={<Wishlist />} />
             <Route path="/categories" element={<Categories />} />

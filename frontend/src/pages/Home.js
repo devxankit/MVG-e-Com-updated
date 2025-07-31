@@ -120,15 +120,19 @@ const Home = () => {
       <HeroCarousel />
 
       {/* Features Section */}
-      <section className="py-16 bg-gray-50">
+      <section className="py-16 bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Why Choose Us</h2>
+            <p className="text-lg text-gray-600">Experience the best shopping with our premium services</p>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {features.map((feature, index) => (
-              <div key={index} className="text-center">
-                <div className="text-green-500 mb-4 flex justify-center">
+              <div key={index} className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transform hover:-translate-y-2 transition-all duration-300 text-center group">
+                <div className="text-green-500 mb-4 flex justify-center group-hover:scale-110 transition-transform duration-300">
                   {feature.icon}
                 </div>
-                <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
+                <h3 className="text-lg font-semibold mb-2 text-gray-900">{feature.title}</h3>
                 <p className="text-gray-600">{feature.description}</p>
               </div>
             ))}
@@ -180,8 +184,8 @@ const Home = () => {
               <div className="spinner"></div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {(Array.isArray(featuredProducts) ? featuredProducts : []).slice(0, 8).map((product) => (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6 justify-items-center">
+              {(Array.isArray(featuredProducts) ? featuredProducts : []).slice(0, 12).map((product) => (
                 <ProductCard
                   key={product._id}
                   product={product}
@@ -215,8 +219,8 @@ const Home = () => {
               <FaArrowRight className="ml-2" />
             </Link>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {discoverProducts.slice(0, 8).map((product) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6 justify-items-center">
+            {discoverProducts.slice(0, 12).map((product) => (
               <ProductCard
                 key={product._id}
                 product={product}
@@ -275,7 +279,7 @@ const Home = () => {
             Join thousands of vendors and start your e-commerce journey today.
           </p>
           <Link
-            to="/vendor-registration"
+            to="/login"
             className="bg-white text-primary-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors inline-flex items-center"
           >
             Become a Vendor

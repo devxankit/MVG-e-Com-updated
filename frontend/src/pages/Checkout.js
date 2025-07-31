@@ -6,7 +6,6 @@ import { useSelector, useDispatch } from 'react-redux';
 import { createOrder } from '../redux/slices/orderSlice';
 import { fetchCart, clearCart } from '../redux/slices/cartSlice';
 import { toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 
 const INDIAN_STATES = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 'Haryana',

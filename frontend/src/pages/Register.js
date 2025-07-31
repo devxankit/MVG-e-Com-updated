@@ -29,6 +29,7 @@ const Register = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
+      toast.success('Registration successful! Welcome to MV Store!');
       navigate(from, { replace: true });
     }
   }, [isAuthenticated, navigate, from]);
@@ -94,7 +95,7 @@ const Register = () => {
       try {
         const { confirmPassword, ...registrationData } = formData;
         await dispatch(register(registrationData)).unwrap();
-        toast.success('Registration successful! Welcome to MV Store!');
+        // Success toast will be handled in useEffect when isAuthenticated changes
       } catch (error) {
         // Error is handled in useEffect for known errors
         if (!error || typeof error !== 'string') {
@@ -187,7 +188,7 @@ const Register = () => {
               <p className="mt-1 text-xs text-gray-500">
                 Want to sell on our platform?{' '}
                 <Link
-                  to="/vendor-registration"
+                  to="/login"
                   className="font-medium text-primary-600 hover:text-primary-500"
                 >
                   Register as a vendor
@@ -351,10 +352,10 @@ const Register = () => {
                 Get access to our large customer base and powerful selling tools.
               </p>
               <Link
-                to="/vendor-registration"
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                to="/login"
+                className="inline-flex items-center px-4 py-2 border border-green-600 text-green-600 text-sm font-medium rounded-lg hover:bg-green-50 transition-colors"
               >
-                Start Vendor Registration
+                Register as a Vendor
               </Link>
             </div>
           </div>
