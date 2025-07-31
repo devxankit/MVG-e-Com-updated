@@ -59,7 +59,10 @@ const [imageUploadProgress, setImageUploadProgress] = useState(0);
   const [eventLoading, setEventLoading] = useState(false);
   const [eventError, setEventError] = useState('');
 
-  const [sellerListings, setSellerListings] = useState([]);
+  // --- Refactor: Separate admin products and seller listings ---
+  const [adminProducts, setAdminProducts] = useState([]); // Admin product templates
+  const [loadingAdminProducts, setLoadingAdminProducts] = useState(false);
+  const [sellerListings, setSellerListings] = useState([]); // Seller product listings
   const [loadingSellerListings, setLoadingSellerListings] = useState(false);
 
   // Seller Listings filter state
@@ -166,10 +169,15 @@ const [imageUploadProgress, setImageUploadProgress] = useState(0);
     });
   }, []);
 
-  // Fetch seller listings when products tab is active
+  // --- Fetch admin products and seller listings ---
   useEffect(() => {
     if (activeTab === 'products') {
+      setLoadingAdminProducts(true);
       setLoadingSellerListings(true);
+      productAPI.getAdminProducts()
+        .then(res => setAdminProducts(res.data))
+        .catch(() => setAdminProducts([]))
+        .finally(() => setLoadingAdminProducts(false));
       productAPI.adminGetAllSellerListings()
         .then(res => setSellerListings(res.data))
         .catch(() => setSellerListings([]))
@@ -330,49 +338,75 @@ const [imageUploadProgress, setImageUploadProgress] = useState(0);
     }
   };
 
-  // Feature/unfeature product
-  const handleFeatureProduct = async (id, isFeatured) => {
-    setActionLoading(id + 'feature');
-    try {
-      let res;
-      if (isFeatured) {
-        res = await productAPI.unfeatureProduct(id);
-      } else {
-        res = await productAPI.featureProduct(id);
-      }
-      setProducts(products.map(p => p._id === id ? res.data.product : p));
-      dispatch(fetchFeaturedProducts());
-    } finally {
-      setActionLoading(null);
-    }
-  };
+  // Helper to check if item is a seller listing
+  const isSellerListing = (item) => !!item.sellerPrice && !item.price;
 
-  // Discover/un-discover product
-  const handleDiscoverProduct = async (id, isDiscover) => {
-    setActionLoading(id + 'discover');
+  // Updated action handlers
+  const handleFeatureProduct = async (item, isFeatured) => {
+    setActionLoading(item._id + 'feature');
     try {
       let res;
-      if (isDiscover) {
-        res = await productAPI.unsetDiscoverProduct(id);
+      if (isSellerListing(item)) {
+        if (isFeatured) {
+          res = await productAPI.unfeatureSellerProduct(item._id);
+        } else {
+          res = await productAPI.featureSellerProduct(item._id);
+        }
+        setSellerListings(sellerListings.map(l => l._id === item._id ? res.data : l));
       } else {
-        res = await productAPI.setDiscoverProduct(id);
+        if (isFeatured) {
+          res = await productAPI.unfeatureProduct(item._id);
+        } else {
+          res = await productAPI.featureProduct(item._id);
+        }
+        setAdminProducts(adminProducts.map(p => p._id === item._id ? res.data.product || res.data : p));
       }
-      setProducts(products.map(p => p._id === id ? res.data : p));
     } finally {
       setActionLoading(null);
     }
   };
-  // Recommend/un-recommend product
-  const handleRecommendProduct = async (id, isRecommended) => {
-    setActionLoading(id + 'recommend');
+  const handleDiscoverProduct = async (item, isDiscover) => {
+    setActionLoading(item._id + 'discover');
     try {
       let res;
-      if (isRecommended) {
-        res = await productAPI.unsetRecommendedProduct(id);
+      if (isSellerListing(item)) {
+        if (isDiscover) {
+          res = await productAPI.undiscoverSellerProduct(item._id);
+        } else {
+          res = await productAPI.discoverSellerProduct(item._id);
+        }
+        setSellerListings(sellerListings.map(l => l._id === item._id ? res.data : l));
       } else {
-        res = await productAPI.setRecommendedProduct(id);
+        if (isDiscover) {
+          res = await productAPI.unsetDiscoverProduct(item._id);
+        } else {
+          res = await productAPI.setDiscoverProduct(item._id);
+        }
+        setAdminProducts(adminProducts.map(p => p._id === item._id ? res.data.product || res.data : p));
       }
-      setProducts(products.map(p => p._id === id ? res.data : p));
+    } finally {
+      setActionLoading(null);
+    }
+  };
+  const handleRecommendProduct = async (item, isRecommended) => {
+    setActionLoading(item._id + 'recommend');
+    try {
+      let res;
+      if (isSellerListing(item)) {
+        if (isRecommended) {
+          res = await productAPI.unrecommendSellerProduct(item._id);
+        } else {
+          res = await productAPI.recommendSellerProduct(item._id);
+        }
+        setSellerListings(sellerListings.map(l => l._id === item._id ? res.data : l));
+      } else {
+        if (isRecommended) {
+          res = await productAPI.unsetRecommendedProduct(item._id);
+        } else {
+          res = await productAPI.setRecommendedProduct(item._id);
+        }
+        setAdminProducts(adminProducts.map(p => p._id === item._id ? res.data.product || res.data : p));
+      }
     } finally {
       setActionLoading(null);
     }
@@ -485,6 +519,36 @@ const [imageUploadProgress, setImageUploadProgress] = useState(0);
     const matchesStatus = sellerListingStatus === 'all' || (sellerListingStatus === 'active' && listing.isListed) || (sellerListingStatus === 'unlisted' && !listing.isListed);
     return (matchesProduct || matchesSeller) && matchesStatus;
   });
+
+  // Add dashboard summary calculation
+  const totalProducts = adminProducts.length;
+  const uniqueSellerIds = new Set(sellerListings.map(l => l.seller?._id || l.seller));
+  const totalSellers = uniqueSellerIds.size;
+  const totalActiveListings = sellerListings.filter(l => l.isListed).length;
+  // Placeholder for total sales (if available)
+  const totalSales = sellerListings.reduce((sum, l) => sum + (l.totalSold || 0), 0);
+
+  // Helper: Get seller display name
+  const getSellerDisplay = seller => seller?.businessName || seller?.email || seller?._id || 'N/A';
+  // Helper: Get seller avatar/initials
+  const getSellerAvatar = seller => seller?.businessName ? seller.businessName[0].toUpperCase() : (seller?.email ? seller.email[0].toUpperCase() : 'S');
+
+  // Add pagination state for products and listings
+  const [productPage, setProductPage] = useState(1);
+  const [productPageSize, setProductPageSize] = useState(10);
+  const paginatedProducts = adminProducts.slice((productPage-1)*productPageSize, productPage*productPageSize);
+  const productTotalPages = Math.ceil(adminProducts.length / productPageSize);
+
+  const [listingPage, setListingPage] = useState(1);
+  const [listingPageSize, setListingPageSize] = useState(10);
+  const filteredListings = sellerListings.filter(listing => {
+    const search = sellerListingSearch.toLowerCase();
+    const matchesProduct = listing.product?.name?.toLowerCase().includes(search);
+    const matchesSeller = getSellerDisplay(listing.seller).toLowerCase().includes(search);
+    return matchesProduct || matchesSeller;
+  });
+  const paginatedListings = filteredListings.slice((listingPage-1)*listingPageSize, listingPage*listingPageSize);
+  const listingTotalPages = Math.ceil(filteredListings.length / listingPageSize);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -839,186 +903,155 @@ const [imageUploadProgress, setImageUploadProgress] = useState(0);
           {/* Products Tab */}
           {activeTab === 'products' && (
             <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-semibold text-gray-800">All Products</h3>
-                <button 
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                  onClick={() => {
-                    setAddProductForm({
-                      name: '',
-                      description: '',
-                      productDescription: '',
-                      price: '',
-                      comparePrice: '',
-                      stock: '',
-                      brand: '',
-                      sku: '',
-                      category: '',
-                      subCategory: '',
-                      features: '',
-                      tags: '',
-                      imageFiles: []
-                    });
-                    setAddProductModal({ open: true });
-                    setAddProductError('');
-                  }}
-                >
-                  <FaPlus />
-                  Add Product
-                </button>
-              </div>
-              {/* Seller Listings Section */}
-              <div className="mb-8">
-                <h4 className="text-md font-semibold mb-2">Seller Listings</h4>
-                {/* Filter/Search Bar */}
-                <div className="flex flex-wrap gap-2 mb-4 items-center">
-                  <input
-                    type="text"
-                    className="border rounded px-2 py-1 text-sm"
-                    placeholder="Search by product or seller..."
-                    value={sellerListingSearch}
-                    onChange={e => setSellerListingSearch(e.target.value)}
-                    style={{ minWidth: 180 }}
-                  />
-                  <select
-                    className="border rounded px-2 py-1 text-sm"
-                    value={sellerListingStatus}
-                    onChange={e => setSellerListingStatus(e.target.value)}
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="active">Active</option>
-                    <option value="unlisted">Unlisted</option>
-                  </select>
+              {/* Dashboard Summary */}
+              <div className="mb-6 flex flex-wrap gap-6 items-center">
+                <div className="bg-white rounded-lg shadow p-4 flex-1 min-w-[180px] text-center">
+                  <div className="text-xs text-gray-500">Total Products</div>
+                  <div className="text-2xl font-bold">{totalProducts}</div>
                 </div>
-                {loadingSellerListings ? (
-                  <div className="text-center py-4">Loading seller listings...</div>
-                ) : filteredSellerListings.length === 0 ? (
-                  <div className="text-gray-400">No seller listings found.</div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full bg-white border border-gray-200">
-                      <thead className="sticky top-0 bg-white z-10">
+                <div className="bg-white rounded-lg shadow p-4 flex-1 min-w-[180px] text-center">
+                  <div className="text-xs text-gray-500">Total Sellers</div>
+                  <div className="text-2xl font-bold">{totalSellers}</div>
+                </div>
+                <div className="bg-white rounded-lg shadow p-4 flex-1 min-w-[180px] text-center">
+                  <div className="text-xs text-gray-500">Active Listings</div>
+                  <div className="text-2xl font-bold">{totalActiveListings}</div>
+                </div>
+                <div className="bg-white rounded-lg shadow p-4 flex-1 min-w-[180px] text-center">
+                  <div className="text-xs text-gray-500">Total Sold</div>
+                  <div className="text-2xl font-bold">{totalSales}</div>
+                </div>
+              </div>
+              {/* Main Content: Admin Products & Seller Listings */}
+              <div className="space-y-10">
+                {/* Admin Product Templates Section */}
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800">Admin Product Templates</h3>
+                    <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2" onClick={() => setAddProductModal({ open: true })}>
+                      <FaPlus /> Add Product
+                </button>
+                  </div>
+                  <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+                    <table className="min-w-full text-sm align-middle">
+                      <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-4 py-2 border">Product</th>
-                          <th className="px-4 py-2 border">Seller</th>
-                          <th className="px-4 py-2 border">Seller Price</th>
-                          <th className="px-4 py-2 border">Default Price</th>
-                          <th className="px-4 py-2 border">Status</th>
-                          <th className="px-4 py-2 border">Listed On</th>
+                          <th className="px-2 py-2 border">Image</th>
+                          <th className="px-2 py-2 border">Name</th>
+                          <th className="px-2 py-2 border">Category</th>
+                          <th className="px-2 py-2 border">Stock</th>
+                          <th className="px-2 py-2 border">Date Added</th>
+                          <th className="px-2 py-2 border">Seller Count</th>
+                          <th className="px-2 py-2 border">Price Range</th>
+                          <th className="px-2 py-2 border">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredSellerListings.map(listing => (
-                          <tr key={listing._id}>
-                            <td className="px-4 py-2 border flex items-center gap-2">
-                              <img src={listing.product?.images?.[0]?.url || '/product-images/default.webp'} alt={listing.product?.name} className="w-10 h-10 object-contain rounded border" />
-                              <span>{listing.product?.name}</span>
-                            </td>
-                            <td className="px-4 py-2 border">{listing.seller?.shopName || listing.seller?._id || 'N/A'}</td>
-                            <td className="px-4 py-2 border font-semibold text-blue-700">{formatINR(listing.sellerPrice)}</td>
-                            <td className="px-4 py-2 border">{formatINR(listing.product?.price)}</td>
-                            <td className="px-4 py-2 border">{listing.isListed ? <span className="text-green-600">Active</span> : <span className="text-gray-400">Unlisted</span>}</td>
-                            <td className="px-4 py-2 border text-xs">{listing.createdAt ? new Date(listing.createdAt).toLocaleDateString() : '-'}</td>
-                          </tr>
-                        ))}
+                        {paginatedProducts.length === 0 ? (
+                          <tr><td colSpan={8} className="text-center py-8 text-gray-400">No products found.</td></tr>
+                        ) : paginatedProducts.map(product => {
+                          const sellersForProduct = sellerListings.filter(listing => listing.product?._id === product._id);
+                          const prices = sellersForProduct.map(l => l.sellerPrice);
+                          const minPrice = prices.length ? Math.min(...prices) : null;
+                          const maxPrice = prices.length ? Math.max(...prices) : null;
+                          return (
+                            <tr key={product._id} className="hover:bg-gray-50">
+                              <td className="px-2 py-2 border text-center"><img src={product.images?.[0]?.url || '/product-images/default.webp'} alt={product.name} className="w-8 h-8 object-contain rounded border mx-auto" /></td>
+                              <td className="px-2 py-2 border font-semibold">{product.name}</td>
+                              <td className="px-2 py-2 border">{typeof product.category === 'object' ? (product.category?.name || '-') : (product.category || '-')}</td>
+                              <td className="px-2 py-2 border text-center">{product.stock ?? '-'}</td>
+                              <td className="px-2 py-2 border text-xs text-center">{product.createdAt ? new Date(product.createdAt).toLocaleDateString() : '-'}</td>
+                              <td className="px-2 py-2 border text-center">
+                                <button className="text-blue-600 underline" title="View Sellers" onClick={() => setEditModal({ open: true, product, sellers: sellersForProduct })}>
+                                  {sellersForProduct.length}
+                                </button>
+                              </td>
+                              <td className="px-2 py-2 border text-center">{minPrice !== null ? `${formatINR(minPrice)} - ${formatINR(maxPrice)}` : '-'}</td>
+                              <td className="px-2 py-2 border flex gap-1 justify-center">
+                                <button className="text-green-600 hover:text-green-800" title="Edit" onClick={() => handleEdit(product)}><FaEdit /></button>
+                                <button className="text-red-600 hover:text-red-800" title="Delete" onClick={() => handleDelete(product._id)}><FaTrash /></button>
+                                <button className={product.isFeatured ? "text-yellow-500" : "text-gray-400"} title="Feature" onClick={() => handleFeatureProduct(product, product.isFeatured)}><FaStarFilled /></button>
+                                <button className={product.isDiscover ? "text-blue-500" : "text-gray-400"} title="Discover" onClick={() => handleDiscoverProduct(product, product.isDiscover)}><FaCompass /></button>
+                                <button className={product.isRecommended ? "text-green-500" : "text-gray-400"} title="Recommend" onClick={() => handleRecommendProduct(product, product.isRecommended)}><FaThumbsUp /></button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
-                )}
-              </div>
-              {loadingProducts ? (
-                <div className="text-center py-8">Loading...</div>
-              ) : (
-                <div className="space-y-4">
-                  {(Array.isArray(products) ? products : []).map((product) => (
-                    <div
-                      key={product._id}
-                      className="bg-white rounded-lg shadow-sm border border-gray-200 px-4 py-3 hover:shadow-md transition"
-                    >
-                      {/* First line: main info */}
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                        <div className="flex items-center gap-4 min-w-0 flex-1">
-                          <img
-                            src={product.images && product.images[0] ? product.images[0].url : '/product-images/default.webp'}
-                            alt={product.name}
-                            className="w-14 h-14 object-cover rounded"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="font-medium text-gray-900 truncate">{product.name}</div>
-                          </div>
-                          <div className="font-bold text-gray-800 whitespace-nowrap">{formatINR(product.price)}</div>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${product.isActive ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'}`}>{product.isActive ? 'Active' : 'Inactive'}</span>
-                        </div>
-                        <div className="flex gap-2 flex-shrink-0 justify-end md:justify-start">
-                          <button
-                            className={product.isFeatured ? "text-yellow-500 hover:text-yellow-600" : "text-gray-400 hover:text-yellow-500"}
-                            title={product.isFeatured ? "Unfeature Product" : "Feature Product"}
-                            onClick={() => handleFeatureProduct(product._id, product.isFeatured)}
-                            disabled={actionLoading === product._id + 'feature'}
-                          >
-                            {product.isFeatured ? <FaStarFilled /> : <FaStarOutline />}
-                          </button>
-                          <button
-                            className={product.isDiscover ? "text-blue-500 hover:text-blue-600" : "text-gray-400 hover:text-blue-500"}
-                            title={product.isDiscover ? "Remove from Discover" : "Add to Discover"}
-                            onClick={() => handleDiscoverProduct(product._id, product.isDiscover)}
-                            disabled={actionLoading === product._id + 'discover'}
-                          >
-                            {product.isDiscover ? <FaCompass /> : <FaRegCompass />}
-                          </button>
-                          <button
-                            className={product.isRecommended ? "text-green-500 hover:text-green-600" : "text-gray-400 hover:text-green-500"}
-                            title={product.isRecommended ? "Remove from Recommended" : "Add to Recommended"}
-                            onClick={() => handleRecommendProduct(product._id, product.isRecommended)}
-                            disabled={actionLoading === product._id + 'recommend'}
-                          >
-                            {product.isRecommended ? <FaThumbsUp /> : <FaRegThumbsUp />}
-                          </button>
-                          {!product.isApproved && (
-                            <>
-                              <button
-                                className="text-green-600 hover:text-green-800"
-                                disabled={actionLoading === product._id + 'approve'}
-                                onClick={() => handleApprove(product._id)}
-                              >
-                                {actionLoading === product._id + 'approve' ? '...' : <FaCheck />}
-                              </button>
-                              <button
-                                className="text-red-600 hover:text-red-800"
-                                disabled={actionLoading === product._id + 'reject'}
-                                onClick={() => setRejectModal({ open: true, product })}
-                              >
-                                <FaTimes />
-                              </button>
-                            </>
-                          )}
-                          <button
-                            className="text-green-600 hover:text-green-800"
-                            onClick={() => handleEdit(product)}
-                            disabled={actionLoading === product._id + 'edit'}
-                          >
-                            <FaEdit />
-                          </button>
-                          <button
-                            className="text-red-600 hover:text-red-800"
-                            onClick={() => handleDelete(product._id)}
-                            disabled={actionLoading === product._id + 'delete'}
-                          >
-                            <FaTrash />
-                          </button>
-                        </div>
+                  {/* Pagination Controls for Products */}
+                  {productTotalPages > 1 && (
+                    <div className="flex items-center justify-between mt-2">
+                      <div>
+                        <button className="px-2 py-1 mr-2 border rounded disabled:opacity-50" onClick={() => setProductPage(p => Math.max(1, p-1))} disabled={productPage === 1}>Prev</button>
+                        <span>Page {productPage} of {productTotalPages}</span>
+                        <button className="px-2 py-1 ml-2 border rounded disabled:opacity-50" onClick={() => setProductPage(p => Math.min(productTotalPages, p+1))} disabled={productPage === productTotalPages}>Next</button>
                       </div>
-                      {/* Second line: secondary info */}
-                      <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-400 mt-2 pl-0 md:pl-20">
-                        <span title={product._id} className="cursor-pointer">ID: {product._id.slice(0, 4)}...{product._id.slice(-4)}</span>
-                        <span title={product.seller?._id || product.seller} className="cursor-pointer">Seller: {typeof product.seller === 'object' ? (product.seller?.shopName || product.seller?._id || 'N/A') : (product.seller || 'N/A')}</span>
-                        <span>Stock: {product.stock}</span>
-                        <span>Category: {typeof product.category === 'object' ? (product.category?.name || product.category?._id || 'N/A') : (product.category || 'N/A')}</span>
+                      <div>
+                        <label className="mr-1 text-xs">Rows per page:</label>
+                        <select value={productPageSize} onChange={e => { setProductPageSize(Number(e.target.value)); setProductPage(1); }} className="border rounded px-1 py-0.5 text-xs">
+                          {[10, 20, 50].map(size => <option key={size} value={size}>{size}</option>)}
+                        </select>
                       </div>
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
+                {/* Seller Listings Section */}
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800">Seller Listings</h3>
+                    <input type="text" className="border rounded px-2 py-1 text-sm ml-2" placeholder="Search by product or seller..." value={sellerListingSearch} onChange={e => { setListingPage(1); setSellerListingSearch(e.target.value); }} style={{ minWidth: 180 }} />
+                  </div>
+                  {paginatedListings.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400">No seller listings found.</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {paginatedListings.map(listing => (
+                        <div key={listing._id} className="bg-white rounded-lg shadow border border-gray-200 p-4 flex flex-col gap-2 hover:shadow-md transition">
+                          <div className="flex items-center gap-4">
+                            <img src={listing.product?.images?.[0]?.url || '/product-images/default.webp'} alt={listing.product?.name} className="w-14 h-14 object-contain rounded border" />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-gray-900 truncate">{listing.product?.name}</div>
+                              <div className="text-xs text-gray-500 truncate">Seller: {listing.seller && getSellerDisplay(listing.seller) !== 'N/A' ? (
+                                <><span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-200 text-xs font-bold mr-1">{getSellerAvatar(listing.seller)}</span>{getSellerDisplay(listing.seller)}</>
+                              ) : <span className="text-gray-400">No Seller</span>}</div>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-4 items-center mt-2 text-sm">
+                            <div>Seller Price: <span className="font-bold text-blue-700">{listing.seller && getSellerDisplay(listing.seller) !== 'N/A' ? formatINR(listing.sellerPrice) : '-'}</span></div>
+                            <div>Default Price: <span>{listing.product?.price ? formatINR(listing.product?.price) : '-'}</span></div>
+                            <div>Status: <span className={`px-2 py-1 rounded-full text-xs font-medium ${listing.isListed ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'}`}>{listing.isListed ? 'Active' : 'Unlisted'}</span></div>
+                            <div>Listed: <span className="text-xs">{listing.createdAt ? new Date(listing.createdAt).toLocaleDateString() : '-'}</span></div>
+                          </div>
+                          <div className="flex gap-2 mt-2">
+                            <button className="text-green-600 hover:text-green-800" title="Edit" onClick={() => setEditModal({ open: true, product: listing })}><FaEdit /></button>
+                            <button className={listing.isFeatured ? "text-yellow-500" : "text-gray-400"} title="Feature" onClick={() => handleFeatureProduct(listing, listing.isFeatured)}><FaStarFilled /></button>
+                            <button className={listing.isDiscover ? "text-blue-500" : "text-gray-400"} title="Discover" onClick={() => handleDiscoverProduct(listing, listing.isDiscover)}><FaCompass /></button>
+                            <button className={listing.isRecommended ? "text-green-500" : "text-gray-400"} title="Recommend" onClick={() => handleRecommendProduct(listing, listing.isRecommended)}><FaThumbsUp /></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* Pagination Controls for Seller Listings */}
+                  {listingTotalPages > 1 && (
+                    <div className="flex items-center justify-between mt-4">
+                      <div>
+                        <button className="px-2 py-1 mr-2 border rounded disabled:opacity-50" onClick={() => setListingPage(p => Math.max(1, p-1))} disabled={listingPage === 1}>Prev</button>
+                        <span>Page {listingPage} of {listingTotalPages}</span>
+                        <button className="px-2 py-1 ml-2 border rounded disabled:opacity-50" onClick={() => setListingPage(p => Math.min(listingTotalPages, p+1))} disabled={listingPage === listingTotalPages}>Next</button>
+                      </div>
+                      <div>
+                        <label className="mr-1 text-xs">Rows per page:</label>
+                        <select value={listingPageSize} onChange={e => { setListingPageSize(Number(e.target.value)); setListingPage(1); }} className="border rounded px-1 py-0.5 text-xs">
+                          {[10, 20, 50].map(size => <option key={size} value={size}>{size}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 

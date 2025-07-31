@@ -82,4 +82,12 @@ router.get('/seller/listings', protect, productController.sellerGetListings);
 // Admin route
 router.get('/admin/seller-listings', protect, authorize('admin'), productController.adminGetAllSellerListings);
 
+// SellerProduct feature/discover/recommend routes (admin only)
+router.patch('/seller-listings/:id/feature', protect, authorize('admin'), productController.featureSellerProduct);
+router.patch('/seller-listings/:id/unfeature', protect, authorize('admin'), productController.unfeatureSellerProduct);
+router.patch('/seller-listings/:id/discover', protect, authorize('admin'), productController.discoverSellerProduct);
+router.patch('/seller-listings/:id/undiscover', protect, authorize('admin'), productController.undiscoverSellerProduct);
+router.patch('/seller-listings/:id/recommend', protect, authorize('admin'), productController.recommendSellerProduct);
+router.patch('/seller-listings/:id/unrecommend', protect, authorize('admin'), productController.unrecommendSellerProduct);
+
 module.exports = router; 

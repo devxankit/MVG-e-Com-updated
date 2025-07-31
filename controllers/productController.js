@@ -724,3 +724,49 @@ exports.getAllSellerListings = asyncHandler(async (req, res) => {
     .populate('seller');
   res.json(listings);
 });
+
+// Feature/unfeature SellerProduct
+exports.featureSellerProduct = async (req, res) => {
+  const sellerProduct = await SellerProduct.findById(req.params.id);
+  if (!sellerProduct) return res.status(404).json({ message: 'Seller listing not found' });
+  sellerProduct.isFeatured = true;
+  await sellerProduct.save();
+  res.json(sellerProduct);
+};
+exports.unfeatureSellerProduct = async (req, res) => {
+  const sellerProduct = await SellerProduct.findById(req.params.id);
+  if (!sellerProduct) return res.status(404).json({ message: 'Seller listing not found' });
+  sellerProduct.isFeatured = false;
+  await sellerProduct.save();
+  res.json(sellerProduct);
+};
+// Discover/undiscover SellerProduct
+exports.discoverSellerProduct = async (req, res) => {
+  const sellerProduct = await SellerProduct.findById(req.params.id);
+  if (!sellerProduct) return res.status(404).json({ message: 'Seller listing not found' });
+  sellerProduct.isDiscover = true;
+  await sellerProduct.save();
+  res.json(sellerProduct);
+};
+exports.undiscoverSellerProduct = async (req, res) => {
+  const sellerProduct = await SellerProduct.findById(req.params.id);
+  if (!sellerProduct) return res.status(404).json({ message: 'Seller listing not found' });
+  sellerProduct.isDiscover = false;
+  await sellerProduct.save();
+  res.json(sellerProduct);
+};
+// Recommend/unrecommend SellerProduct
+exports.recommendSellerProduct = async (req, res) => {
+  const sellerProduct = await SellerProduct.findById(req.params.id);
+  if (!sellerProduct) return res.status(404).json({ message: 'Seller listing not found' });
+  sellerProduct.isRecommended = true;
+  await sellerProduct.save();
+  res.json(sellerProduct);
+};
+exports.unrecommendSellerProduct = async (req, res) => {
+  const sellerProduct = await SellerProduct.findById(req.params.id);
+  if (!sellerProduct) return res.status(404).json({ message: 'Seller listing not found' });
+  sellerProduct.isRecommended = false;
+  await sellerProduct.save();
+  res.json(sellerProduct);
+};

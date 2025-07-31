@@ -187,6 +187,13 @@ const productAPI = {
   getAdminProducts: () => {
     return axiosInstance.get('/products/admin-products');
   },
+  // SellerProduct feature/discover/recommend (admin only)
+  featureSellerProduct: (id) => axiosInstance.patch(`/products/seller-listings/${id}/feature`),
+  unfeatureSellerProduct: (id) => axiosInstance.patch(`/products/seller-listings/${id}/unfeature`),
+  discoverSellerProduct: (id) => axiosInstance.patch(`/products/seller-listings/${id}/discover`),
+  undiscoverSellerProduct: (id) => axiosInstance.patch(`/products/seller-listings/${id}/undiscover`),
+  recommendSellerProduct: (id) => axiosInstance.patch(`/products/seller-listings/${id}/recommend`),
+  unrecommendSellerProduct: (id) => axiosInstance.patch(`/products/seller-listings/${id}/unrecommend`),
 };
 
 export default productAPI; 

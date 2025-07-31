@@ -18,6 +18,18 @@ const sellerProductSchema = new mongoose.Schema({
   isListed: {
     type: Boolean,
     default: true
+  },
+  isFeatured: {
+    type: Boolean,
+    default: false
+  },
+  isDiscover: {
+    type: Boolean,
+    default: false
+  },
+  isRecommended: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true
