@@ -8,9 +8,11 @@ const upload = multer({ storage });
 
 // Public routes
 router.get('/', productController.getProducts);
+router.get('/admin-products', productController.getAdminProducts);
 router.get('/featured', productController.getFeaturedProducts);
 router.get('/search', productController.searchProducts);
 router.get('/category/:categoryId', productController.getProductsByCategory);
+router.get('/seller-listings', productController.getAllSellerListings);
 
 // Event banner routes (must be before /:id)
 router.post('/event-banner', protect, authorize('admin'), productController.createOrUpdateEventBanner);

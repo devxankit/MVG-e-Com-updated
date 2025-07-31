@@ -83,15 +83,20 @@ const ProductList = () => {
   useEffect(() => {
     setLoading(true);
     const fetch = category && category !== 'all'
-      ? productAPI.getProductsByCategory(category)
-      : productAPI.getProducts();
-    fetch.then(res => {
-      setProducts(res.data);
+      ? productAPI.getAllSellerListings().then(res => res.data.filter(listing => {
+          return (
+            String(listing.product.category) === String(category) ||
+            (listing.product.subCategory && String(listing.product.subCategory) === String(category))
+          );
+        }))
+      : productAPI.getAllSellerListings().then(res => res.data);
+    Promise.resolve(fetch).then(data => {
+      setProducts(data);
       setLoading(false);
-      console.log('Fetched products from API:', res.data);
+      console.log('Fetched seller listings from API:', data);
     }).catch((err) => {
       setLoading(false);
-      console.error('Error fetching products:', err);
+      console.error('Error fetching seller listings:', err);
     });
   }, [category]);
 
@@ -103,7 +108,9 @@ const ProductList = () => {
     return localPath;
   };
 
-  const filteredProducts = products.filter(product => {
+  // For seller listings, filter/search/sort on product fields
+  const filteredProducts = products.filter(listing => {
+    const product = listing.product;
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory =
       category === 'all' ||
@@ -111,18 +118,19 @@ const ProductList = () => {
       (product.subCategory && String(product.subCategory) === String(category));
     return matchesSearch && matchesCategory;
   });
-  console.log('Filtered products:', filteredProducts);
 
   const sortedProducts = [...filteredProducts].sort((a, b) => {
+    const aProduct = a.product;
+    const bProduct = b.product;
     switch (sortBy) {
       case 'price-low':
-        return a.price - b.price;
+        return a.sellerPrice - b.sellerPrice;
       case 'price-high':
-        return b.price - a.price;
+        return b.sellerPrice - a.sellerPrice;
       case 'rating':
-        return b.rating - a.rating;
+        return (bProduct.rating || 0) - (aProduct.rating || 0);
       default:
-        return a.name.localeCompare(b.name);
+        return aProduct.name.localeCompare(bProduct.name);
     }
   });
   console.log('Sorted products:', sortedProducts);
@@ -234,13 +242,13 @@ const ProductList = () => {
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-5 p-1 md:p-2 justify-center">
-          {sortedProducts.map((product) => (
+          {sortedProducts.map((listing) => (
             <ProductCard
-              key={product._id}
-              product={product}
+              key={listing._id}
+              product={{ ...listing.product, seller: listing.seller, sellerPrice: listing.sellerPrice, listingId: listing._id }}
               isInWishlist={isInWishlist}
               handleWishlist={handleWishlist}
-              handleAddToCart={() => handleAddToCart({ ...product, _id: product._id })}
+              handleAddToCart={() => handleAddToCart({ ...listing.product, _id: listing._id })}
             />
           ))}
         </div>

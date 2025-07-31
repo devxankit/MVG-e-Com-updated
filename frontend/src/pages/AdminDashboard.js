@@ -7,6 +7,7 @@ import axiosInstance from '../api/axiosConfig';
 import { useDispatch } from 'react-redux';
 import { fetchFeaturedProducts } from '../redux/slices/productSlice';
 import { TextField, Button, Button as MUIButton, Grid, Card, CardContent, Typography, Select, Select as MUISelect, MenuItem, InputLabel, FormControl, Box } from '@mui/material';
+import { toast } from 'react-toastify';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -35,6 +36,7 @@ const [editForm, setEditForm] = useState({});
 const [editError, setEditError] = useState('');
 const [rejectReason, setRejectReason] = useState('');
 const [actionLoading, setActionLoading] = useState(null);
+const [imageUploadProgress, setImageUploadProgress] = useState(0);
 
   const [editUserModal, setEditUserModal] = useState({ open: false, user: null });
   const [editUserForm, setEditUserForm] = useState({});
@@ -380,16 +382,59 @@ const [actionLoading, setActionLoading] = useState(null);
   const handleAddProductSubmit = async (e) => {
     e.preventDefault();
     setAddProductError('');
+
+    // Validation
+    if (!addProductForm.name?.trim()) return setAddProductError('Product name is required');
+    if (!addProductForm.description?.trim()) return setAddProductError('Short description is required');
+    if (!addProductForm.productDescription?.trim()) return setAddProductError('Detailed description is required');
+    if (!addProductForm.price || isNaN(Number(addProductForm.price)) || Number(addProductForm.price) <= 0) return setAddProductError('Valid price is required');
+    if (addProductForm.comparePrice && isNaN(Number(addProductForm.comparePrice))) return setAddProductError('Compare price must be a number');
+    if (!addProductForm.stock || isNaN(Number(addProductForm.stock)) || Number(addProductForm.stock) < 0) return setAddProductError('Valid stock quantity is required');
+    if (!addProductForm.brand?.trim()) return setAddProductError('Brand is required');
+    if (!addProductForm.sku?.trim()) return setAddProductError('SKU is required');
+    if (!addProductForm.category || addProductForm.category.length !== 24) return setAddProductError('Main category is required');
+    if (!addProductForm.subCategory || addProductForm.subCategory.length !== 24) return setAddProductError('Subcategory is required');
+
     setActionLoading('addProduct');
+    setImageUploadProgress(0);
+
     try {
-      const res = await axiosInstance.post('/admin/create-product', {
-        ...addProductForm,
-        productDescription: addProductForm.productDescription
+      const formData = new FormData();
+      formData.append('name', addProductForm.name);
+      formData.append('description', addProductForm.description);
+      formData.append('productDescription', addProductForm.productDescription);
+      formData.append('price', String(Number(addProductForm.price)));
+      if (addProductForm.comparePrice) formData.append('comparePrice', String(Number(addProductForm.comparePrice)));
+      formData.append('stock', String(Number(addProductForm.stock)));
+      formData.append('brand', addProductForm.brand);
+      formData.append('sku', addProductForm.sku);
+      formData.append('category', addProductForm.category);
+      formData.append('subCategory', addProductForm.subCategory);
+      if (addProductForm.features) formData.append('features', addProductForm.features);
+      if (addProductForm.tags) formData.append('tags', addProductForm.tags);
+      if (addProductForm.imageFiles && addProductForm.imageFiles.length > 0) {
+        addProductForm.imageFiles.forEach((file) => {
+          formData.append('images', file);
+        });
+      }
+      // Debug: print all FormData keys/values
+      for (let pair of formData.entries()) {
+        console.log(pair[0]+ ': ' + pair[1]);
+      }
+      const res = await axiosInstance.post('/admin/create-product', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setImageUploadProgress(percentCompleted);
+        },
       });
-      setProducts([...products, res.data]);
+      setProducts([...products, res.data.product]);
       setAddProductModal({ open: false });
       setAddProductForm({});
+      setImageUploadProgress(0);
+      toast.success('Product created successfully!');
     } catch (err) {
+      console.error('Product creation error:', err, err?.response?.data);
       setAddProductError(err.response?.data?.message || 'Failed to create product');
     } finally {
       setActionLoading(null);
@@ -802,13 +847,17 @@ const [actionLoading, setActionLoading] = useState(null);
                     setAddProductForm({
                       name: '',
                       description: '',
+                      productDescription: '',
                       price: '',
+                      comparePrice: '',
                       stock: '',
                       brand: '',
                       sku: '',
                       category: '',
                       subCategory: '',
-                      images: [{ url: '' }]
+                      features: '',
+                      tags: '',
+                      imageFiles: []
                     });
                     setAddProductModal({ open: true });
                     setAddProductError('');
@@ -962,9 +1011,9 @@ const [actionLoading, setActionLoading] = useState(null);
                       {/* Second line: secondary info */}
                       <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-400 mt-2 pl-0 md:pl-20">
                         <span title={product._id} className="cursor-pointer">ID: {product._id.slice(0, 4)}...{product._id.slice(-4)}</span>
-                        <span title={product.seller?._id || product.seller} className="cursor-pointer">Seller: {product.seller?.shopName || product.seller || 'N/A'}</span>
+                        <span title={product.seller?._id || product.seller} className="cursor-pointer">Seller: {typeof product.seller === 'object' ? (product.seller?.shopName || product.seller?._id || 'N/A') : (product.seller || 'N/A')}</span>
                         <span>Stock: {product.stock}</span>
-                        <span>Category: {product.category || 'N/A'}</span>
+                        <span>Category: {typeof product.category === 'object' ? (product.category?.name || product.category?._id || 'N/A') : (product.category || 'N/A')}</span>
                       </div>
                     </div>
                   ))}
@@ -1335,75 +1384,358 @@ const [actionLoading, setActionLoading] = useState(null);
 
       {/* Add Product Modal */}
       {addProductModal.open && (
-<div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-2xl mx-auto relative">
-            <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-600" onClick={() => setAddProductModal({ open: false })}>&times;</button>
-            <h2 className="text-xl font-bold mb-4">Add New Product</h2>
-            {addProductError && <div className="text-red-500 mb-2">{addProductError}</div>}
-            <Grid container spacing={2} component="form" onSubmit={handleAddProductSubmit}>
-              <Grid item xs={12} sm={6}>
-                <TextField fullWidth label="Product Name" variant="outlined" value={addProductForm.name || ''} onChange={e => setAddProductForm({ ...addProductForm, name: e.target.value })} required />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField fullWidth label="Short Description" variant="outlined" value={addProductForm.description || ''} onChange={e => setAddProductForm({ ...addProductForm, description: e.target.value })} required />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField fullWidth multiline rows={4} label="Product Description" variant="outlined" value={addProductForm.productDescription || ''} onChange={e => setAddProductForm({ ...addProductForm, productDescription: e.target.value })} required />
-              </Grid>
-              <Grid item xs={6} sm={4}>
-                <TextField fullWidth type="number" label="Price" variant="outlined" value={addProductForm.price || ''} onChange={e => setAddProductForm({ ...addProductForm, price: e.target.value })} required min="0" />
-              </Grid>
-              <Grid item xs={6} sm={4}>
-                <TextField fullWidth type="number" label="Stock" variant="outlined" value={addProductForm.stock || ''} onChange={e => setAddProductForm({ ...addProductForm, stock: e.target.value })} required min="0" />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <TextField fullWidth label="Brand" variant="outlined" value={addProductForm.brand || ''} onChange={e => setAddProductForm({ ...addProductForm, brand: e.target.value })} required />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField fullWidth label="SKU" variant="outlined" value={addProductForm.sku || ''} onChange={e => setAddProductForm({ ...addProductForm, sku: e.target.value })} required />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth variant="outlined" required>
-                  <InputLabel>Main Category</InputLabel>
-                  <Select
-                    native
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Add New Product</h2>
+                <p className="text-sm text-gray-600 mt-1">Create a new product for the marketplace</p>
+              </div>
+              <button 
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                onClick={() => setAddProductModal({ open: false })}
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Error Display */}
+            {addProductError && (
+              <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex">
+                  <svg className="w-5 h-5 text-red-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  <div className="ml-3">
+                    <p className="text-sm text-red-800">{addProductError}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleAddProductSubmit} className="p-6 space-y-6">
+              {/* Basic Information */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Product Name *
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Enter product name"
+                      value={addProductForm.name || ''}
+                      onChange={e => setAddProductForm({ ...addProductForm, name: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Brand *
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Enter brand name"
+                      value={addProductForm.brand || ''}
+                      onChange={e => setAddProductForm({ ...addProductForm, brand: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      SKU *
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Enter SKU"
+                      value={addProductForm.sku || ''}
+                      onChange={e => setAddProductForm({ ...addProductForm, sku: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Short Description *
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Brief product description"
+                      value={addProductForm.description || ''}
+                      onChange={e => setAddProductForm({ ...addProductForm, description: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Detailed Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Detailed Description *
+                </label>
+                <textarea
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Provide detailed product description..."
+                  value={addProductForm.productDescription || ''}
+                  onChange={e => setAddProductForm({ ...addProductForm, productDescription: e.target.value })}
+                  required
+                />
+              </div>
+
+              {/* Pricing & Stock */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Pricing & Stock</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Price (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="0.00"
+                      value={addProductForm.price || ''}
+                      onChange={e => setAddProductForm({ ...addProductForm, price: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Compare Price (₹)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Original price for discount"
+                      value={addProductForm.comparePrice || ''}
+                      onChange={e => setAddProductForm({ ...addProductForm, comparePrice: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Stock Quantity *
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="0"
+                      value={addProductForm.stock || ''}
+                      onChange={e => setAddProductForm({ ...addProductForm, stock: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Categories */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Categories</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Main Category *
+                    </label>
+                    <select
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     value={addProductForm.category || ''}
                     onChange={e => setAddProductForm({ ...addProductForm, category: e.target.value, subCategory: '' })}
-                    label="Main Category"
+                      required
                   >
-                    <option aria-label="None" value="" />
+                      <option value="">Select main category</option>
                     {categories.filter(cat => !cat.parentCategory).map(cat => (
                       <option key={cat._id} value={cat._id}>{cat.name}</option>
                     ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth variant="outlined" required>
-                  <InputLabel>Subcategory</InputLabel>
-                  <Select
-                    native
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Subcategory *
+                    </label>
+                    <select
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     value={addProductForm.subCategory || ''}
                     onChange={e => setAddProductForm({ ...addProductForm, subCategory: e.target.value })}
-                    label="Subcategory"
                     disabled={!addProductForm.category}
+                      required
                   >
-                    <option aria-label="None" value="" />
+                      <option value="">Select subcategory</option>
                     {categories.filter(cat => cat.parentCategory === addProductForm.category).map(subcat => (
                       <option key={subcat._id} value={subcat._id}>{subcat.name}</option>
                     ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField fullWidth label="Image URL" variant="outlined" value={addProductForm.images && addProductForm.images[0] ? addProductForm.images[0].url : ''} onChange={e => setAddProductForm({ ...addProductForm, images: [{ url: e.target.value }] })} required />
-              </Grid>
-              <Grid item xs={12}>
-                <Button fullWidth type="submit" variant="contained" color="primary" disabled={actionLoading === 'addProduct'}>
-                  {actionLoading === 'addProduct' ? 'Adding...' : 'Add Product'}
-                </Button>
-              </Grid>
-            </Grid>
+                    </select>
+          </div>
+                </div>
+              </div>
+
+              {/* Image Upload */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Product Images</h3>
+                <div className="space-y-4">
+                  <div 
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.add('border-blue-400', 'bg-blue-50');
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
+                      const files = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'));
+                      if (files.length > 0) {
+                        setAddProductForm({ ...addProductForm, imageFiles: files });
+                      }
+                    }}
+                  >
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      className="hidden"
+                      id="product-images"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files);
+                        setAddProductForm({ ...addProductForm, imageFiles: files });
+                      }}
+                    />
+                    <label htmlFor="product-images" className="cursor-pointer">
+                      <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <p className="mt-2 text-sm text-gray-600">
+                        <span className="font-medium text-blue-600 hover:text-blue-500">
+                          Click to upload
+                        </span>{' '}
+                        or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">PNG, JPG, GIF up to 5MB each (max 5 images)</p>
+                    </label>
+                  </div>
+                  
+                  {/* Preview uploaded images */}
+                  {addProductForm.imageFiles && addProductForm.imageFiles.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {addProductForm.imageFiles.map((file, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={URL.createObjectURL(file)}
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newFiles = addProductForm.imageFiles.filter((_, i) => i !== index);
+                              setAddProductForm({ ...addProductForm, imageFiles: newFiles });
+                            }}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            ×
+                          </button>
+                          {index === 0 && (
+                            <div className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-2 py-1 rounded">
+                              Primary
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Additional Information */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Additional Information</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Features (comma-separated)
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Feature 1, Feature 2, Feature 3"
+                      value={addProductForm.features || ''}
+                      onChange={e => setAddProductForm({ ...addProductForm, features: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Tags (comma-separated)
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="tag1, tag2, tag3"
+                      value={addProductForm.tags || ''}
+                      onChange={e => setAddProductForm({ ...addProductForm, tags: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Form Actions */}
+              <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+                {actionLoading === 'addProduct' && imageUploadProgress > 0 && (
+                  <div className="flex-1 mr-4">
+                    <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
+                      <span>Uploading images...</span>
+                      <span>{imageUploadProgress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                        style={{ width: `${imageUploadProgress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setAddProductModal({ open: false })}
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  disabled={actionLoading === 'addProduct'}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading === 'addProduct'}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+                >
+                  {actionLoading === 'addProduct' ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Creating Product...
+                    </>
+                  ) : (
+                    'Create Product'
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

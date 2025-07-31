@@ -3,9 +3,10 @@ const { asyncHandler } = require('../middleware/errorMiddleware');
 const EventBanner = require('../models/EventBanner');
 const SellerProduct = require('../models/SellerProduct');
 
-// Get all products
+// Get all products (public)
 exports.getProducts = asyncHandler(async (req, res) => {
-  const products = await Product.find();
+  // Only return products that have a seller (i.e., are public)
+  const products = await Product.find({ seller: { $ne: null } });
   res.json(products);
 });
 
@@ -78,14 +79,14 @@ exports.searchProducts = asyncHandler(async (req, res) => {
   res.json(products);
 });
 
-// Get products by category
+// Get products by category (public)
 exports.getProductsByCategory = asyncHandler(async (req, res) => {
   const categoryId = req.params.categoryId;
-  // Find products where either category or subCategory matches
+  // Only return products that have a seller (i.e., are public)
   const products = await Product.find({
-    $or: [
-      { category: categoryId },
-      { subCategory: categoryId }
+    $and: [
+      { seller: { $ne: null } },
+      { $or: [ { category: categoryId }, { subCategory: categoryId } ] }
     ]
   });
   res.json(products);
@@ -707,3 +708,19 @@ exports.adminDeleteProduct = async function(req, res) {
   await SellerProduct.deleteMany({ product: productId });
   return origDeleteProduct.apply(this, arguments);
 };
+
+// Get admin products (for seller selection)
+exports.getAdminProducts = asyncHandler(async (req, res) => {
+  // Only return products that have no seller (admin templates)
+  const products = await Product.find({ seller: null });
+  res.json(products);
+});
+
+// Get all seller listings (public)
+exports.getAllSellerListings = asyncHandler(async (req, res) => {
+  // Only return listings that are active/listed
+  const listings = await SellerProduct.find({ isListed: true })
+    .populate('product')
+    .populate('seller');
+  res.json(listings);
+});

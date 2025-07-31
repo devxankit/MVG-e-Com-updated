@@ -167,7 +167,7 @@ const productSchema = new mongoose.Schema({
   seller: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Seller',
-    required: [true, 'Please provide a seller']
+    required: false // was true, now false so admin can create products without seller
   },
   sku: {
     type: String,

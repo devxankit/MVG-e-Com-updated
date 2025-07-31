@@ -120,19 +120,19 @@ const Login = () => {
       }
 
       if (!data.email) {
-        newErrors.email = 'Email is required';
+      newErrors.email = 'Email is required';
       } else if (!/\S+@\S+\.\S+/.test(data.email)) {
-        newErrors.email = 'Email is invalid';
-      }
+      newErrors.email = 'Email is invalid';
+    }
 
       if (!data.phone) {
         newErrors.phone = 'Phone number is required';
       }
 
       if (!data.password) {
-        newErrors.password = 'Password is required';
+      newErrors.password = 'Password is required';
       } else if (data.password.length < 6) {
-        newErrors.password = 'Password must be at least 6 characters';
+      newErrors.password = 'Password must be at least 6 characters';
       }
 
       if (data.password !== data.confirmPassword) {
@@ -207,103 +207,103 @@ const Login = () => {
 
   const renderForm = () => {
     if (formType === 'login') {
-      return (
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          {/* Email Field */}
-          <div>
-            <label htmlFor="email" className="form-label">
-              Email address
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
+  return (
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* Email Field */}
+            <div>
+              <label htmlFor="email" className="form-label">
+                Email address
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
               value={loginData.email}
               onChange={(e) => handleInputChange(e, 'login')}
-              className={`form-input ${errors.email ? 'border-red-500' : ''}`}
-              placeholder="Enter your email"
-            />
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-600">{errors.email}</p>
-            )}
-          </div>
+                className={`form-input ${errors.email ? 'border-red-500' : ''}`}
+                placeholder="Enter your email"
+              />
+              {errors.email && (
+                <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+              )}
+            </div>
 
-          {/* Password Field */}
-          <div>
-            <label htmlFor="password" className="form-label">
-              Password
-            </label>
-            <div className="relative">
-              <input
-                id="password"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-                required
+            {/* Password Field */}
+            <div>
+              <label htmlFor="password" className="form-label">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  required
                 value={loginData.password}
                 onChange={(e) => handleInputChange(e, 'login')}
-                className={`form-input pr-10 ${errors.password ? 'border-red-500' : ''}`}
-                placeholder="Enter your password"
-              />
+                  className={`form-input pr-10 ${errors.password ? 'border-red-500' : ''}`}
+                  placeholder="Enter your password"
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <FaEyeSlash className="text-gray-400" />
+                  ) : (
+                    <FaEye className="text-gray-400" />
+                  )}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+              )}
+            </div>
+
+            {/* Remember Me & Forgot Password */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <input
+                  id="remember-me"
+                  name="remember-me"
+                  type="checkbox"
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                />
+                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+                  Remember me
+                </label>
+              </div>
+
+              <div className="text-sm">
+                <Link
+                  to="/forgot-password"
+                  className="font-medium text-primary-600 hover:text-primary-500"
+                >
+                  Forgot your password?
+                </Link>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <div>
               <button
-                type="button"
-                className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                onClick={() => setShowPassword(!showPassword)}
+                type="submit"
+                disabled={loading}
+                className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {showPassword ? (
-                  <FaEyeSlash className="text-gray-400" />
+                {loading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="spinner mr-2"></div>
+                    Signing in...
+                  </div>
                 ) : (
-                  <FaEye className="text-gray-400" />
+                  'Sign in'
                 )}
               </button>
-            </div>
-            {errors.password && (
-              <p className="mt-1 text-sm text-red-600">{errors.password}</p>
-            )}
-          </div>
-
-          {/* Remember Me & Forgot Password */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <input
-                id="remember-me"
-                name="remember-me"
-                type="checkbox"
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-              />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
-                Remember me
-              </label>
-            </div>
-
-            <div className="text-sm">
-              <Link
-                to="/forgot-password"
-                className="font-medium text-primary-600 hover:text-primary-500"
-              >
-                Forgot your password?
-              </Link>
-            </div>
-          </div>
-
-          {/* Submit Button */}
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <div className="flex items-center justify-center">
-                  <div className="spinner mr-2"></div>
-                  Signing in...
-                </div>
-              ) : (
-                'Sign in'
-              )}
-            </button>
           </div>
         </form>
       );
@@ -621,8 +621,8 @@ const Login = () => {
                 </div>
               )}
             </button>
-          </div>
-        </form>
+            </div>
+          </form>
       );
     }
   };
@@ -730,38 +730,38 @@ const Login = () => {
           {/* Social Login (only for login form) */}
           {formType === 'login' && (
             <>
-              {/* Divider */}
-              <div className="mt-6">
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300" />
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white text-gray-500">Or continue with</span>
-                  </div>
-                </div>
-
-                {/* Social Login Buttons */}
-                <div className="mt-6 grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => handleSocialLogin('Google')}
-                    className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-                  >
-                    <FaGoogle className="text-red-500" />
-                    <span className="ml-2">Google</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSocialLogin('Facebook')}
-                    className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-                  >
-                    <FaFacebook className="text-blue-600" />
-                    <span className="ml-2">Facebook</span>
-                  </button>
-                </div>
+          {/* Divider */}
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
               </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+              </div>
+            </div>
+
+            {/* Social Login Buttons */}
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => handleSocialLogin('Google')}
+                className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+              >
+                <FaGoogle className="text-red-500" />
+                <span className="ml-2">Google</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSocialLogin('Facebook')}
+                className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+              >
+                <FaFacebook className="text-blue-600" />
+                <span className="ml-2">Facebook</span>
+              </button>
+            </div>
+          </div>
             </>
           )}
 

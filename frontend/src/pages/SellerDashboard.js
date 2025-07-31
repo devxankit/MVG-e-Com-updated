@@ -184,7 +184,7 @@ const SellerDashboard = () => {
 
   // Fetch admin products and seller listings on mount
   useEffect(() => {
-    productAPI.getProducts().then(res => setAdminProducts(res.data)).catch(() => setAdminProducts([]));
+    productAPI.getAdminProducts().then(res => setAdminProducts(res.data)).catch(() => setAdminProducts([]));
     productAPI.sellerGetListings().then(res => setSellerListings(res.data)).catch(() => setSellerListings([]));
   }, []);
 

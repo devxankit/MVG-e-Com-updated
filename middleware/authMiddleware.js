@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Seller = require('../models/Seller');
 
 // Protect routes - verify JWT token
 const protect = async (req, res, next) => {
@@ -25,6 +26,12 @@ const protect = async (req, res, next) => {
 
       if (!req.user.isActive) {
         return res.status(401).json({ message: 'User account is deactivated' });
+      }
+
+      // Attach sellerId if user is a seller
+      if (req.user.role === 'seller') {
+        const seller = await Seller.findOne({ userId: req.user._id });
+        if (seller) req.user.sellerId = seller._id;
       }
 
       next();

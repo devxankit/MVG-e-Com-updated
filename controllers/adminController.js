@@ -3,6 +3,7 @@ const Seller = require('../models/Seller');
 const User = require('../models/User');
 const { asyncHandler } = require('../middleware/errorMiddleware');
 const Product = require('../models/Product');
+const cloudinary = require('../utils/cloudinary');
 
 // Get all sellers (with approval status)
 exports.getSellers = asyncHandler(async (req, res) => {
@@ -36,13 +37,10 @@ exports.rejectSeller = asyncHandler(async (req, res) => {
   res.json({ message: 'Seller rejected', seller });
 });
 
-
-
 // Placeholder: Get admin dashboard
 exports.getDashboard = (req, res) => {
   res.json({ message: 'Get admin dashboard' });
 };
-
 
 // Create product by admin
 exports.createProductByAdmin = asyncHandler(async (req, res) => {
@@ -55,7 +53,11 @@ exports.createProductByAdmin = asyncHandler(async (req, res) => {
     category,
     subCategory,
     stock,
-    images
+    brand,
+    comparePrice,
+    features,
+    specifications,
+    tags
   } = req.body;
 
   // Validate required fields
@@ -68,9 +70,7 @@ exports.createProductByAdmin = asyncHandler(async (req, res) => {
     !category ||
     !subCategory ||
     stock == null ||
-    !images ||
-    !Array.isArray(images) ||
-    images.length === 0
+    !brand
   ) {
     return res.status(400).json({ message: 'Please provide all required fields' });
   }
@@ -80,24 +80,109 @@ exports.createProductByAdmin = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'Invalid category or subCategory ID' });
   }
 
+  // Handle image uploads
+  let imageUrls = [];
+  if (req.files && req.files.length > 0) {
+    try {
+      for (const file of req.files) {
+        const uploadResult = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { 
+              folder: 'admin-products',
+              resource_type: 'auto',
+              transformation: [
+                { width: 800, height: 800, crop: 'limit' },
+                { quality: 'auto' }
+              ]
+            }, 
+            (error, result) => {
+              if (error) return reject(error);
+              resolve(result);
+            }
+          );
+          stream.end(file.buffer);
+        });
+        
+        imageUrls.push({
+          url: uploadResult.secure_url,
+          alt: file.originalname,
+          isPrimary: imageUrls.length === 0 // First image is primary
+        });
+      }
+    } catch (uploadError) {
+      console.error('Image upload failed:', uploadError);
+      return res.status(500).json({ message: 'Image upload failed', error: uploadError.message });
+    }
+  }
+
+  // If no images uploaded, use a default image
+  if (imageUrls.length === 0) {
+    imageUrls = [{
+      url: 'https://res.cloudinary.com/demo/image/upload/v1690000000/products/default-product.png',
+      alt: 'Default Product Image',
+      isPrimary: true
+    }];
+  }
+
+  // Parse features and specifications if they're strings
+  let parsedFeatures = [];
+  let parsedSpecifications = [];
+  let parsedTags = [];
+
+  if (features) {
+    try {
+      parsedFeatures = typeof features === 'string' ? JSON.parse(features) : features;
+    } catch (e) {
+      parsedFeatures = features.split(',').map(f => f.trim()).filter(f => f);
+    }
+  }
+
+  if (specifications) {
+    try {
+      parsedSpecifications = typeof specifications === 'string' ? JSON.parse(specifications) : specifications;
+    } catch (e) {
+      parsedSpecifications = [];
+    }
+  }
+
+  if (tags) {
+    try {
+      parsedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
+    } catch (e) {
+      parsedTags = tags.split(',').map(t => t.trim()).filter(t => t);
+    }
+  }
+
   const product = new Product({
     name,
-    price,
+    price: parseFloat(price),
+    comparePrice: comparePrice ? parseFloat(comparePrice) : undefined,
     description,
+    shortDescription: description,
     productDescription,
     sku,
     category,
     subCategory,
-    stock,
-    images,
+    stock: parseInt(stock),
+    brand,
+    images: imageUrls,
+    features: parsedFeatures,
+    specifications: parsedSpecifications,
+    tags: parsedTags,
     isActive: true,
     isApproved: true,
-    approvedBy: req.user._id,
-    seller: req.body.seller
+    isFeatured: false,
+    isDiscover: false,
+    isRecommended: false,
+    approvedBy: req.user._id
+    // Do NOT set seller here
   });
 
   await product.save();
-  res.status(201).json({ message: 'Product created successfully by admin', product });
+  res.status(201).json({ 
+    message: 'Product created successfully by admin', 
+    product: await product.populate('category', 'name') 
+  });
 });
 
 // Get all users

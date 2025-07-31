@@ -179,6 +179,14 @@ const productAPI = {
   sellerUnlistProduct: (sellerProductId) => axiosInstance.put('/products/seller/unlist', { sellerProductId }),
   sellerGetListings: () => axiosInstance.get('/products/seller/listings'),
   adminGetAllSellerListings: () => axiosInstance.get('/products/admin/seller-listings'),
+  // Get all seller listings (public)
+  getAllSellerListings: () => {
+    return axiosInstance.get('/products/seller-listings');
+  },
+  // Get admin products (for seller selection)
+  getAdminProducts: () => {
+    return axiosInstance.get('/products/admin-products');
+  },
 };
 
 export default productAPI; 
